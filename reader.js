@@ -272,7 +272,7 @@
 
   function planRow(id, target, selectedId) {
     const plan = plans[id];
-    const price = id === 'all' ? '월 ' + won(plan.price) : id === 'topic' ? '음악 4,990원 · 웹소설 6,990원' : '아티스트별 요금';
+    const price = id === 'all' ? '월 ' + won(plan.price) : id === 'topic' ? '장르별 요금' : '아티스트별 요금';
     const excluded = target && id === 'all' && !planIncludes(id, target.book);
     const scope = target && id !== 'all' ? (id === 'artist' ? target.book.author : categoryOf(target.book)) : '';
     const targetLabel = !target ? '' : excluded || (scope && !availableScope(id, scope)) ? '이 작품 제외' :
@@ -281,7 +281,8 @@
       (id === selectedId ? ' checked' : '') + '><span class="rd-choice-mark" aria-hidden="true">' + app().icon('bookmark', 16) +
       '</span><span class="rd-plan-copy"><strong>' + escape(plan.label) + '</strong><small>' + escape(plan.note) +
       '</small></span><span class="rd-plan-terms"><b>' + price + '</b>' +
-      (targetLabel ? '<span class="rd-plan-scope">' + escape(targetLabel) + '</span>' : '') + '</span></label>';
+      (targetLabel ? '<span class="rd-plan-scope">' + escape(targetLabel) + '</span>' : '') + '</span></label>' +
+      (id === selectedId ? '<div class="rd-scope-slot">' + scopePicker(id) + '</div>' : '');
   }
 
   function exclusionsText() {
@@ -304,7 +305,7 @@
     } else {
       notice = '음악과 웹소설의 구독 편성작을 스트리밍하거나 열람할 수 있습니다. 소장·재배포 권한은 포함하지 않습니다. ' + escape(exclusionsText());
     }
-    const amount = price === null ? '대상 선택 후 표시' : (scope ? named + ' · ' : '') + '월 ' + won(price);
+    const amount = price === null ? '대상 선택 후 표시' : (scope ? named + ' · ' : '') + '<span class="rd-price">월 ' + won(price) + '</span>';
     const mismatch = target && (scope || plan === 'all') && !planIncludes(plan, target.book, scope);
     return '<div class="rd-review-line"><h2>' + plans[plan].label + ' 이용 조건</h2><output>' + amount + '</output></div><p>' + notice + '</p>' +
       (mismatch ? '<p class="rd-notice">선택한 이용권에 이 작품이 포함되지 않습니다. 다른 대상이나 이용권을 선택해 주세요.</p>' : '') +
@@ -337,7 +338,7 @@
     const form = '<form id="rd-subscribe" class="rd-purchase" data-reader-form="subscribe">' +
       '<fieldset><legend>이용권 비교</legend><p class="rd-plan-caption">월 이용료</p><div class="rd-plan-grid">' +
       Object.keys(plans).map(id => planRow(id, target, initial)).join('') + '</div></fieldset>' +
-      '<div class="rd-scope-slot">' + scopePicker(initial) + '</div><div class="rd-pay-summary">' +
+      '<div class="rd-pay-summary">' +
       '<div class="rd-offer-review" aria-live="polite">' + offerReview(initial, '', target) + '</div>' +
       '<p>오늘 시작하면 ' + date(nextMonthlyDate(new Date())) + '에 한 달 이용 기간이 끝납니다. 실제 청구나 자동 결제는 없습니다. 내 서재의 구독 관리에서 다음 갱신을 해지하거나 환불을 신청할 수 있습니다.</p>' +
       terms + '<div class="rd-transfer">' + reportLink + '</div>' +
@@ -593,7 +594,11 @@
         });
         form.addEventListener('change', event => {
           const field = event.target.name;
-          if (field === 'plan') form.querySelector('.rd-scope-slot').innerHTML = scopePicker(event.target.value);
+          if (field === 'plan') {
+            const picker = form.querySelector('.rd-scope-slot');
+            picker.innerHTML = scopePicker(event.target.value);
+            event.target.closest('.rd-plan').after(picker);
+          }
           if (field === 'plan' || field === 'scope') refreshOffer(form, target);
           if (field === 'agree') form.querySelector('[type="submit"]').disabled = !form.elements.agree.checked || form.elements.agree.disabled;
         });

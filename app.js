@@ -104,8 +104,7 @@
   function galleryCard(book) {
     const marked=state.saved.includes(book.id);
     const firstAction=book.category === '음악' ? ' 첫 트랙 듣기' : ' 첫 화 읽기';
-    const wideSource=book.wideCover ? '<source media="(min-width:701px)" srcset="'+escape(book.wideCover)+'">' : '';
-    return '<article class="shelf-card"><a href="#read/'+book.id+'/1" class="jacket '+book.id+'" aria-label="'+escape(book.title)+firstAction+'"><picture>'+wideSource+'<img alt="" src="'+book.cover+'" loading="lazy"></picture></a>'+
+    return '<article class="shelf-card"><a href="#read/'+book.id+'/1" class="jacket '+book.id+'" aria-label="'+escape(book.title)+firstAction+'"><img alt="" src="'+book.cover+'" loading="lazy"></a>'+
       '<button class="shelf-save'+(marked?' selected':'')+'" type="button" data-save="'+book.id+'" aria-pressed="'+marked+'" aria-label="'+escape(book.title)+' 서재에 저장">'+icon('bookmark',17)+'</button>'+
       '<div class="shelf-copy"><div><h3><a href="#read/'+book.id+'/1">'+escape(book.title)+'</a></h3><p>'+escape(book.author)+'<span>·</span>'+escape(book.genre)+'</p></div><a href="#read/'+book.id+'/1" class="open-book" aria-label="'+escape(book.title)+firstAction+'">'+icon('arrow',20)+'</a></div></article>';
   }
@@ -125,13 +124,13 @@
       feature.episodes.map((ep,i)=>'<li><a href="#read/'+feature.id+'/'+(i+1)+'"><span class="track-number">'+String(i+1).padStart(2,'0')+'</span><strong>'+escape(ep.title)+'</strong><small>'+ (ep.free ? '무료 듣기' : '구독 트랙') +'</small>'+icon(ep.free?'play':'arrow',16)+'</a></li>').join('')+'</ol></section>' : '';
     const shelf=remaining.length ? '<section class="shelf" aria-labelledby="shelf-title"><div class="shelf-heading"><h2 id="shelf-title">'+(music?'다음에 들을 음반':'다음에 펼칠 작품')+'</h2><span>작품 '+remaining.length+'편</span></div><div class="shelf-grid">'+remaining.map(galleryCard).join('')+'</div></section>' : '';
     return '<div class="catalog-home">'+navigation+'<section class="feature" aria-labelledby="featured-title"><div class="feature-copy">'+
-      '<div class="feature-kicker"><i aria-hidden="true"></i>'+(music?'이번 주 음반':'편집자의 서가')+'</div>'+
+      '<div class="feature-kicker">'+(music?'이번 주 음반':'편집자의 서가')+'</div>'+
       '<p class="edition"><span>'+escape(feature.genre)+'</span><span>'+(music?'싱글':'연재 중')+'</span></p>'+
       '<h1 id="featured-title">'+escape(feature.title)+'</h1><p class="feature-author">'+escape(feature.author)+(music?'':' 지음')+'</p>'+
       '<p class="feature-blurb">'+escape(feature.blurb)+'</p><div class="feature-actions">'+
       '<a class="feature-read" href="#read/'+feature.id+'/1">'+icon(music?'play':'book',19)+(music?'첫 트랙 듣기':'첫 화 읽기')+icon('arrow',18)+'</a>'+
       '<button type="button" class="feature-follow" data-follow="'+escape(feature.author)+'" aria-pressed="'+followed+'">'+icon(followed?'check':'plus',16)+(followed?'팔로잉':music?'아티스트 팔로우':'작가 팔로우')+'</button></div></div>'+
-      '<a class="feature-art '+feature.id+'" href="#read/'+feature.id+'/1" aria-label="'+escape(feature.title)+(music?' 첫 트랙 ':' 첫 화 ')+escape(first.title)+'"><img src="'+feature.cover+'" '+(feature.id==='moon'?'srcset="./assets/moon-small.webp 680w, ./assets/moon.webp 1254w" sizes="(max-width:700px) calc(100vw - 40px), (min-width:1456px) 690px, 48vw" ':'')+'alt="'+(feature.id==='moon'?'보름달 아래 붉은 우편함과 불이 켜진 우체국':escape(feature.title)+' 표지')+'" fetchpriority="high"></a></section>'+
+      '<a class="feature-art '+feature.id+'" href="#read/'+feature.id+'/1" aria-label="'+escape(feature.title)+(music?' 첫 트랙 ':' 첫 화 ')+escape(first.title)+'"><img src="'+feature.cover+'" '+(feature.id==='moon'?'srcset="./assets/moon-small.webp 680w, ./assets/moon.webp 1254w" sizes="(max-width:700px) 264px, 320px" ':'')+'alt="'+(feature.id==='moon'?'보름달 아래 붉은 우편함과 불이 켜진 우체국':escape(feature.title)+' 표지')+'" fetchpriority="high"></a></section>'+
       trackList+shelf+'</div>';
   }
   const names={home:'홈',library:'내 서재',community:'커뮤니티',read:'작품 읽기',subscribe:'구독권 선택',account:'구독 관리',report:'신고',studio:'창작자 작업실',ops:'운영 콘솔'};
@@ -150,9 +149,7 @@
     currentRoute=path;
     const isHome=route==='home';
     const workspace=['studio','ops'].includes(route);
-    document.body.dataset.theme=isHome?'dark':'light';
     document.body.dataset.page=route;
-    document.querySelector('meta[name="theme-color"]').content=isHome?'#101b16':'#faf9f4';
     const isAudio=route==='read' && books.find(b=>b.id===parts[1])?.category==='음악';
     document.title=(isAudio?'트랙 듣기':names[route] || '페이지 찾기')+' · Subart';
     spaces.open=false;
