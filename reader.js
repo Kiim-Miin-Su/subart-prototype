@@ -12,9 +12,9 @@
   const uid = () => window.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   let leaveReading = null;
   const plans = {
-    topic: {label: '웹소설 주제별', price: 3900, note: '서재에 있는 웹소설 구독 회차'},
+    topic: {label: '웹소설 주제별', price: 3900, note: '웹소설 분야의 구독 회차'},
     artist: {label: '이담 작가', price: 2900, note: '이담이 공개한 작품의 구독 회차'},
-    all: {label: '올패스', price: 4900, note: '프로토타입의 모든 구독 대상 작품'}
+    all: {label: '올패스', price: 4900, note: '모든 분야의 구독 대상 회차'}
   };
 
   const priceFor = id => id === 'artist' ? (window.SubartWorkspace?.artistPrice?.() ?? plans.artist.price) : plans[id].price;
@@ -23,6 +23,11 @@
     const change = book.id === 'moon' && index === 0 && window.SubartWorkspace?.publishedVersion?.();
     return change || book.episodes[index].version || 'v1';
   }
+  function planIncludes(plan, book, artist = firstBook().author) {
+    if (plan === 'topic') return (book.category ?? '웹소설') === '웹소설';
+    if (plan === 'artist') return book.author === artist;
+    return plan === 'all' && !book.allPassExcluded;
+  }
   function access(book, index) {
     const ep = book?.episodes[index];
     if (!ep || book.published === false || ep.published === false ||
@@ -30,8 +35,7 @@
     if (ep.free) return 'free';
     const {subscribed, subscription} = app().state;
     if (!subscribed || (subscription?.endsAt && Date.now() >= subscription.endsAt)) return 'locked';
-    if (subscription?.plan === 'artist' && book.author !== subscription.artist) return 'locked';
-    return 'open';
+    return planIncludes(subscription?.plan ?? 'topic', book, subscription?.artist) ? 'open' : 'locked';
   }
   function routeBook(parts, offset = 1) {
     const book = bookById(parts[offset]);
@@ -187,23 +191,55 @@
     return !!subscribed && (!subscription?.endsAt || subscription.endsAt > Date.now());
   }
 
+  function readInsteadOfSubscribe(parts) {
+    const target = routeBook(parts);
+    return target && access(target.book, target.index) !== 'locked' ? linkToRead(target.book, target.index) : null;
+  }
+
+  function planRow(id, plan, target, selectedId) {
+    const excluded = target && !planIncludes(id, target.book);
+    const status = target ? '<span class="rd-plan-scope">' + (excluded ? '이 회차 제외' : '이 회차 포함') + '</span>' : '';
+    return '<label class="rd-plan"><input type="radio" name="plan" value="' + id + '"' +
+      (id === selectedId ? ' checked' : '') + (excluded ? ' disabled' : '') + '>' +
+      '<span class="rd-choice-mark" aria-hidden="true">' + app().icon('bookmark', 16) + '</span>' +
+      '<span class="rd-plan-copy"><strong>' + escape(plan.label) + '</strong><small>' + escape(plan.note) + '</small></span>' +
+      '<span class="rd-plan-terms"><b>월 ' + won(priceFor(id)) + '</b>' + status + '</span></label>';
+  }
+
   function subscribe(parts) {
     const target = routeBook(parts);
+    if (parts[1] && !target) return page(header('회차를 찾을 수 없습니다') + empty('작품과 회차 주소를 확인해 주세요.'));
     const back = target ? linkToRead(target.book, target.index) : '#library';
-    const active = activeSubscription();
+    if (activeSubscription()) {
+      return page(header('구독권 선택') + '<p class="rd-notice">이용 중인 구독권이 있습니다.</p>' +
+        action('#account', '내 이용권 확인') + link(back, target ? '회차로 돌아가기' : '내 서재'), 'rd-service');
+    }
+    const available = Object.keys(plans).find(id => !target || planIncludes(id, target.book));
+    const exclusions = app().books.filter(book => book.allPassExcluded &&
+      book.episodes.some((ep, i) => !ep.free && access(book, i) !== 'closed'));
+    const excludedText = exclusions.length ? '올패스 제외 작품 · ' + exclusions.map(b => b.title).join(', ') : '올패스 제외 작품 없음';
+    const context = target ? '<aside class="rd-origin" aria-label="선택한 작품">' + cover(target.book) +
+      '<div><p class="rd-byline">' + escape(target.book.author) + ' · ' + escape(target.book.genre) +
+      '</p><h2>' + escape(target.book.title) + '</h2><p>' + (target.index + 1) + '화 · ' +
+      escape(target.book.episodes[target.index].title) + '</p></div></aside>' : '';
+    const reportLink = target ? link(linkToReport(target.book, target.index), '개인 송금 유도 신고') :
+      more('개인 송금 유도 신고', '<ul class="rd-report-works">' + app().books.flatMap(book => {
+        const i = book.episodes.findIndex((ep, index) => access(book, index) !== 'closed');
+        return i < 0 ? [] : ['<li>' + link(linkToReport(book, i), book.title + ' 신고') + '</li>'];
+      }).join('') + '</ul>');
+    const form = '<form id="rd-subscribe" class="rd-purchase" data-reader-form="subscribe">' +
+      '<fieldset><legend>이용권 비교</legend><p class="rd-plan-caption">월 예시 요금</p><div class="rd-plan-grid">' +
+      Object.entries(plans).map(([id, plan]) => planRow(id, plan, target, available)).join('') +
+      '</div></fieldset><p class="rd-exclusions">' + escape(excludedText) + '</p>' +
+      '<div class="rd-pay-summary"><div class="rd-review-line"><h2>이용 조건</h2>' +
+      (available ? '<output class="rd-selected-price">' + escape(plans[available].label) + ' · 월 ' + won(priceFor(available)) + '</output>' : '') +
+      '</div><p>한 달 동안 이용하며, 내 서재에서 갱신 해지와 환불을 신청할 수 있습니다.</p>' +
+      '<div class="rd-transfer"><span>개인 계좌로 송금하지 마세요.</span>' + reportLink + '</div>' +
+      (available ? '<label class="rd-consent"><input name="agree" type="checkbox" required> 실제 청구가 없는 모의 구독임을 확인했습니다.</label>' +
+        '<button class="rd-button" type="submit" disabled>모의 구독 시작</button>' : '<p>이 회차를 포함하는 이용권이 없습니다.</p>') + '</div></form>';
     return page(header('구독권 선택', link('#account', '구독 관리 →')) +
-      '<p class="rd-intro">읽고 싶은 작품의 범위에 맞는 이용권을 고르세요.</p>' +
-      (active ? '<div class="rd-notice">이용 중인 구독권이 있습니다. ' + link('#account', '내 구독 보기 →') + '</div>' :
-      '<form id="rd-subscribe" class="rd-purchase" data-reader-form="subscribe"><fieldset><legend>구독 범위</legend><div class="rd-plan-grid">' +
-      Object.entries(plans).map(([id, plan]) => {
-        const excluded = id === 'artist' && target && target.book.author !== firstBook().author;
-        return '<label class="rd-plan"><input type="radio" name="plan" value="' + id + '"' + (id === 'topic' ? ' checked' : '') + (excluded ? ' disabled' : '') +
-          '><span class="rd-byline">' + escape(plan.label) + '</span><strong>월 ' + won(priceFor(id)) + '</strong><span>' +
-          escape(excluded ? '이 회차는 이담 작가 이용권에서 제외됩니다.' : plan.note) + '</span></label>';
-      }).join('') +
-      '</div></fieldset><div class="rd-pay-summary"><h2>이용 조건</h2><p>선택한 상품에 포함된 공개 회차를 한 달 동안 이용합니다. 내 서재에서 갱신 해지와 환불을 신청할 수 있습니다.</p><p class="rd-notice">모의 구독입니다. 실제 청구는 발생하지 않습니다.</p>' +
-      '<label class="rd-consent"><input name="agree" type="checkbox" required> 선택한 상품의 모의 이용 조건을 확인했습니다.</label><button class="rd-button" type="submit">모의 구독 시작</button></div></form>') +
-      link(back, target ? '← 회차로 돌아가기' : '← 내 서재'), 'rd-service');
+      '<div class="rd-subscribe-layout' + (target ? '' : ' is-general') + '">' + context + form + '</div>' +
+      link(back, target ? '← 회차로 돌아가기' : '← 내 서재', 'rd-subscribe-back'), 'rd-subscribe');
   }
 
   function account() {
@@ -328,7 +364,8 @@
       if (activeSubscription() || !data.get('agree')) return;
       const plan = String(data.get('plan'));
       const target = routeBook(parts);
-      if (!Object.hasOwn(plans, plan) || (plan === 'artist' && target && target.book.author !== firstBook().author)) return;
+      if (!Object.hasOwn(plans, plan) || (parts[1] && !target)) return;
+      if (target && (access(target.book, target.index) !== 'locked' || !planIncludes(plan, target.book))) return;
       const now = new Date();
       const end = new Date(now);
       end.setDate(1); end.setMonth(end.getMonth() + 1);
@@ -370,6 +407,14 @@
     for (const button of root().querySelectorAll('[data-reader-action]')) button.addEventListener('click', () => toggle(button));
     for (const form of root().querySelectorAll('[data-reader-form]')) {
       form.addEventListener('submit', event => submit(event,parts));
+      if (form.dataset.readerForm==='subscribe') form.addEventListener('change', event => {
+        if (event.target.name === 'plan') {
+          const plan = event.target.value;
+          form.querySelector('.rd-selected-price').textContent = plans[plan].label + ' · 월 ' + won(priceFor(plan));
+          form.elements.agree.checked = false;
+        }
+        form.querySelector('[type="submit"]').disabled = !form.elements.agree.checked;
+      });
       if (form.dataset.readerForm==='feedback') form.elements.message.addEventListener('input', e => e.target.setCustomValidity(''));
     }
     if (parts[0]==='read') trackReading(parts);
@@ -377,5 +422,5 @@
   function leave() {
     if (leaveReading) { leaveReading(); leaveReading=null; }
   }
-  window.SubartReader={render,bind,leave};
+  window.SubartReader={render,bind,leave,readInsteadOfSubscribe};
 })();

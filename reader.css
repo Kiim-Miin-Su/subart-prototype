@@ -126,19 +126,56 @@
 .rd-page :is(select,textarea) {border:1px solid var(--control-line);border-radius:var(--control-radius);min-height:var(--control-height);background:var(--paper);color:var(--ink);padding:8px 12px;width:100%;max-width:100%;font-size:1rem;font-weight:400}
 .rd-page textarea {resize:vertical}
 .rd-intro {margin-bottom:28px!important;color:var(--muted);font-size:1.04rem}
-.rd-purchase fieldset {border:0;padding:0}
-.rd-purchase legend {padding:0 0 12px}
-.rd-plan-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-.rd-plan {position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:24px 16px 20px 38px;border:1px solid var(--line);border-radius:var(--control-radius);cursor:pointer}
-.rd-plan input {position:absolute;left:11px;top:24px}
-.rd-plan:has(input:disabled) {cursor:default;background:var(--panel)}
-.rd-plan:has(input:checked) {border-color:var(--rd-main);background:var(--rd-wash)}
-.rd-plan strong {font:500 clamp(1.3rem,2.2vw,1.95rem)/1.4 var(--serif);color:var(--ink)}
-.rd-plan>span:last-child {color:var(--muted);font-size:.85rem;font-weight:400}
-.rd-pay-summary,.rd-account-card {margin:26px 0 14px;padding:clamp(20px,3vw,36px);background:var(--panel);max-width:760px}
-.rd-pay-summary h2,.rd-account-card h2,.rd-report-context h2 {margin:3px 0 12px}
-.rd-pay-summary p,.rd-account-card>p {color:var(--muted);margin-bottom:14px}
-.rd-consent {display:flex;align-items:center;gap:8px;min-height:var(--control-height);margin:12px 0;cursor:pointer}
+.rd-subscribe {
+  --plan-row-min:64px;
+  --plan-row-inset:16px;
+}
+.rd-subscribe .rd-wrap {max-width:1080px;padding-top:clamp(28px,4vw,56px)}
+.rd-subscribe .rd-heading {margin-bottom:32px;padding-bottom:24px}
+.rd-subscribe-layout {display:grid;grid-template-columns:minmax(220px,296px) minmax(0,1fr);gap:clamp(32px,6vw,96px);align-items:start}
+.rd-subscribe-layout.is-general {grid-template-columns:minmax(0,720px)}
+.rd-origin .rd-cover {width:100%;aspect-ratio:1/.98;object-position:center 56%;border-radius:var(--control-radius)}
+.rd-origin>div {padding-top:16px}
+.rd-origin h2 {font:500 clamp(1.5rem,2.3vw,2.1rem)/1.4 var(--serif);margin:4px 0}
+.rd-origin p:last-child {color:var(--muted);font-size:1rem}
+.rd-purchase {min-width:0}
+.rd-purchase fieldset {min-width:0;border:0;padding:0;position:relative}
+.rd-purchase legend {color:var(--ink);font-size:1.18rem;line-height:1.5;padding:0 0 12px}
+.rd-purchase .rd-plan-caption {position:absolute;inset-inline-end:0;bottom:100%;padding-bottom:14px;color:var(--muted);font-size:.82rem}
+.rd-plan-grid {border-block:1px solid var(--control-line)}
+.rd-plan {position:relative;display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:12px;align-items:center;min-height:var(--plan-row-min);padding:12px var(--plan-row-inset);background:var(--paper);cursor:pointer}
+.rd-plan+.rd-plan {border-top:1px solid var(--line)}
+.rd-plan input {position:absolute;inset-inline-start:var(--plan-row-inset);width:16px;height:16px;margin:0;opacity:0}
+.rd-choice-mark {display:grid;place-items:center;width:16px;height:16px;border:1px solid var(--control-line);border-radius:50%}
+.rd-choice-mark svg {display:none}
+.rd-plan:has(input:checked) {background:var(--panel)}
+.rd-plan:has(input:checked) .rd-choice-mark {border:0;color:var(--primary)}
+.rd-plan:has(input:checked) .rd-choice-mark svg {display:block;fill:currentColor}
+.rd-plan:has(input:disabled) {color:var(--muted);cursor:default}
+.rd-plan:has(input:focus-visible) {outline:3px solid var(--focus);outline-offset:-3px}
+.rd-plan:not(:has(input:checked,input:disabled)):hover {background:color-mix(in srgb,var(--panel) 48%,var(--paper))}
+.rd-plan-copy,.rd-plan-terms {display:grid;gap:2px}
+.rd-plan-copy strong,.rd-plan-terms b {font-size:1rem;font-weight:600}
+.rd-plan-copy small,.rd-plan-scope {color:var(--muted);font-size:.875rem;font-weight:400}
+.rd-plan-terms {text-align:right;white-space:nowrap}
+.rd-exclusions {padding-block:12px;color:var(--muted);font-size:.875rem}
+.rd-pay-summary {margin-top:16px;border-top:1px solid var(--line);padding-top:20px}
+.rd-pay-summary h2 {font:600 1rem/1.5 var(--sans);margin:0}
+.rd-review-line {display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}
+.rd-review-line output {font-weight:600;color:var(--primary)}
+.rd-pay-summary>p,.rd-transfer {color:var(--muted);font-size:.94rem}
+.rd-transfer {display:flex;align-items:baseline;flex-wrap:wrap;column-gap:12px}
+.rd-transfer .rd-link,.rd-transfer summary {font-size:.9rem;text-decoration:underline;text-underline-offset:3px}
+.rd-transfer .rd-more {margin:0;border:0;padding:0}
+.rd-transfer .rd-more summary {min-height:var(--control-height);padding:10px 0}
+.rd-report-works {margin:0;padding:0}
+.rd-consent {display:flex;align-items:center;gap:8px;min-height:var(--control-height);margin:4px 0 12px;cursor:pointer}
+.rd-consent input {margin:0}
+.rd-subscribe .rd-button:disabled {cursor:default;opacity:.55;filter:none}
+.rd-subscribe-back {margin-top:20px}
+.rd-account-card {margin:26px 0 14px;padding:clamp(20px,3vw,36px);background:var(--panel);max-width:760px}
+.rd-account-card h2,.rd-report-context h2 {margin:3px 0 12px}
+.rd-account-card>p {color:var(--muted);margin-bottom:14px}
 .rd-facts {max-width:580px}
 .rd-facts>div {display:flex;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
 .rd-facts dt {color:var(--muted)}
@@ -186,9 +223,15 @@
  .rd-author-note h2 {margin:20px 0 12px}
  .rd-attachment {margin:18px 0 2px}
  .rd-attachment .rd-cover {min-height:140px;max-height:190px}
- .rd-plan-grid {grid-template-columns:1fr;gap:8px}
- .rd-plan {padding:12px 16px 12px 40px}
- .rd-plan input {top:14px}
+ .rd-subscribe-layout {grid-template-columns:minmax(0,1fr);gap:24px}
+ .rd-subscribe .rd-heading {padding-bottom:16px;margin-bottom:20px}
+ .rd-origin {display:grid;grid-template-columns:72px minmax(0,1fr);gap:16px;align-items:center}
+ .rd-origin .rd-cover {aspect-ratio:3/4}
+ .rd-origin>div {padding:0}
+ .rd-subscribe .rd-button {width:100%;justify-content:center}
+ .rd-plan {gap:8px}
+ .rd-review-line {align-items:flex-start;flex-wrap:wrap}
+ .rd-origin h2 {font-size:1.5rem}
  .rd-service-grid {gap:16px}
  .rd-feedback-list li>div {gap:14px}
 }

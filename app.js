@@ -127,6 +127,10 @@
   function render() {
     let parts=readHash();
     if(parts[0]==='app-content') parts=['home'];
+    if (parts[0]==='subscribe' && parts[1]) {
+      const readerLink=window.SubartReader.readInsteadOfSubscribe(parts);
+      if (readerLink) { location.replace(readerLink); return; }
+    }
     const route=parts[0], known=Object.hasOwn(names,route);
     const path=parts.join('/');
     const moved=path!==currentRoute;
