@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 320" width="640" height="320">
+  <title>마지막 낱활자</title><desc>석양이 비치는 활자판 옆에 잉크가 묻은 손 롤러와 교정지가 놓여 있다.</desc>
+  <defs>
+    <pattern id="wood" width="97" height="34" patternUnits="userSpaceOnUse"><path d="M-3 13q25-5 48-2t52-2m-55 9q14 3 37-1M3 28l19-1" fill="none" stroke="#713b32" stroke-width="1.4"/></pattern>
+    <pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse"><path d="m0 5 5-5" stroke="#d4b6a0" stroke-width=".75"/></pattern>
+  </defs>
+  <path fill="#a95c43" d="M0 0h640v320H0z"/><path fill="url(#wood)" d="M0 0h640v320H0z"/>
+  <g transform="rotate(-12 292 154)">
+    <path d="M48 118h201v149H48z" fill="#603b34"/><path d="m41 108 201 1 1 148H41z" fill="#d6ad88"/>
+    <path d="M64 130h119m-119 8h150m-150 12h83m-82 10h64m-63 62h106m-108 12h129" stroke="#825745" fill="none" stroke-width="2"/>
+    <path d="M93 178h19v18H93zm37 0h16v17h-16z" fill="none" stroke="#965039" stroke-width="5"/>
+    <g stroke="#422f2b" stroke-width="2">
+      <path d="m166 83 57 4 2 70-57-4z" fill="#4a3733"/><path d="m166 78 57 4 2 56-57-4z" fill="#a68b72"/>
+      <path d="m232 96 64-4-2 72-64 4z" fill="#453330"/><path d="m232 89 65-3-3 57-64 5z" fill="#bda18a"/>
+      <path d="m210 162 76-8 1 85-78 9z" fill="#4c3935"/><path d="m210 153 76-7 1 69-78 9z" fill="#b5a18a"/>
+    </g>
+    <path d="m177 91 33 2-1 27-30-2zM243 106l36-3m-18-11 1 15m-14 7 26-2 1 13-26 3zm-24 90 20-37 27 31m-29-19 4-13" fill="none" stroke="#473d35" stroke-width="6" stroke-linejoin="round"/>
+    <path d="m211 225 75-10v20l-75 9z" fill="url(#hatch)"/>
+  </g>
+  <g transform="rotate(-25 375 178)">
+    <path d="M315 113q0-9 10-11h106q10 1 10 11v46q0 9-10 10H325q-10 0-10-10z" fill="#3e3731"/>
+    <path d="M322 111q44-7 103-5m-101 11 85-3" fill="none" stroke="#857762" stroke-width="2"/>
+    <ellipse cx="434" cy="135" rx="8" ry="29" fill="#222d2a"/>
+    <path d="M311 139v44l63 13v25m70-82v40l-70 17" fill="none" stroke="#503e33" stroke-width="7"/>
+    <path d="M311 137v41l62 14m70-56v39l-69 17" fill="none" stroke="#c8aa83" stroke-width="3"/>
+    <path d="M363 211q12-7 22 0l-2 52q-9 9-18 1z" fill="#553a30"/><path d="m369 218 1 33" stroke="#bc805b" stroke-width="2"/>
+  </g>
+  <path d="m488 270 77-50 7 8-81 48zm6-21 67-48 5 6-68 49z" fill="#bda68d"/>
+</svg>

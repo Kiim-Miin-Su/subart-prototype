@@ -33,11 +33,26 @@
   }
   const escapes={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => escapes[c]);
+  // Public sample comments are shared with older browser libraries. Personal shelf choices stay local.
+  const sampleFeedback = [
+    {id:'seed-press',bookId:'press',episode:0,author:'잉크병',text:'활자를 하나씩 뒤집어 읽는 장면에서 저도 모르게 고개를 기울였어요.',created:Date.UTC(2026,10,24)},
+    {id:'seed-moon-window',bookId:'moon',episode:0,author:'수풀',text:'답장을 넣기 전까지 우편함 밖의 소리만 들리는 구성이 좋았어요.',created:Date.UTC(2026,10,23)},
+    {id:'seed-radio',bookId:'radio',episode:0,author:'비탈길',text:'주파수를 조금씩 맞춰 가는 대목을 소리 내어 읽었어요.',created:Date.UTC(2026,10,22)},
+    {id:'seed-station',bookId:'station',episode:0,author:'물결',text:'대합실에 남은 귤 두 알은 누구 몫이었을까요? 역장보다 그 빈자리가 더 오래 기억에 남네요.',created:Date.UTC(2026,10,21)},
+    {id:'seed-garden',bookId:'garden',episode:0,author:'모과',text:'물 준 시간 옆에 처음으로 색을 적는 장면, 제 식물 노트에도 따라 해 보고 싶어요.',created:Date.UTC(2026,10,20)},
+    {id:'seed-indigo',bookId:'indigo',episode:0,author:'하늬',text:'천을 물 밖으로 꺼내는 순간까지 색을 기다리게 해서 좋았어요.',created:Date.UTC(2026,10,20)},
+    {id:'seed-sea',bookId:'sea',episode:0,author:'연필끝',text:'나침반을 접고 돛을 보라는 말을 읽고 앞의 풍경을 다시 봤습니다.',created:Date.UTC(2026,10,19)},
+    {id:'seed-score',bookId:'score',episode:0,author:'서온',text:'악보의 빈자리를 들여다보는 동안 저도 잠깐 읽기를 멈췄어요.',created:Date.UTC(2026,10,18)},
+    {id:'seed-letter',bookId:'moon',episode:0,author:'단추',text:'우편함 앞에서 한참 기다리는 모습이 더 선명하게 떠올라요.',created:Date.UTC(2026,10,17)}
+  ];
   const initial = {
-    saved:['station','garden'], following:[],
-    progress:{moon:{episode:0,version:'v2',paragraph:3,percent:38,updated:Date.UTC(2026,10,23)}},
-    feedback:[{id:'seed-letter',bookId:'moon',episode:0,author:'단추',text:'우편함 앞에서 한참 기다리는 모습이 더 선명하게 떠올라요.',created:Date.UTC(2026,10,17)}],
-    reports:[],subscribed:false
+    saved:['station','garden','indigo','radio'], following:['민하','도하'],
+    progress:{
+      moon:{episode:0,version:'v2',paragraph:3,percent:38,updated:Date.UTC(2026,10,23)},
+      garden:{episode:0,version:'v1',paragraph:1,percent:50,updated:Date.UTC(2026,10,20)},
+      sea:{episode:0,version:'v1',paragraph:1,percent:50,updated:Date.UTC(2026,10,18)}
+    },
+    feedback:sampleFeedback.slice(),reports:[],subscribed:false
   };
   function load() {
     try {
@@ -46,6 +61,14 @@
       const result={...initial,...raw};
       for(const key of ['saved','following','feedback','reports']) if (!Array.isArray(result[key])) result[key]=initial[key];
       if (!result.progress || typeof result.progress!=='object' || Array.isArray(result.progress)) result.progress=initial.progress;
+      const examples=new Map(sampleFeedback.map(item=>[item.id,item]));
+      const personal=[];
+      for (const item of result.feedback) {
+        if (!item || typeof item.id!=='string') continue;
+        if (examples.has(item.id)) examples.set(item.id,item);
+        else personal.push(item);
+      }
+      result.feedback=[...personal,...examples.values()];
       return result;
     } catch {return initial;}
   }
@@ -79,7 +102,8 @@
   }
   function galleryCard(book) {
     const marked=state.saved.includes(book.id);
-    return '<article class="shelf-card"><a href="#read/'+book.id+'/1" class="jacket '+book.id+'" aria-label="'+escape(book.title)+' 첫 화 읽기"><picture><source media="(min-width:701px)" srcset="./assets/'+book.id+'-wide.svg"><img alt="" src="'+book.cover+'" loading="lazy"></picture></a>'+
+    const wideSource=book.wideCover ? '<source media="(min-width:701px)" srcset="'+escape(book.wideCover)+'">' : '';
+    return '<article class="shelf-card"><a href="#read/'+book.id+'/1" class="jacket '+book.id+'" aria-label="'+escape(book.title)+' 첫 화 읽기"><picture>'+wideSource+'<img alt="" src="'+book.cover+'" loading="lazy"></picture></a>'+
       '<button class="shelf-save'+(marked?' selected':'')+'" type="button" data-save="'+book.id+'" aria-pressed="'+marked+'" aria-label="'+escape(book.title)+' 서재에 저장">'+icon('bookmark',17)+'</button>'+
       '<div class="shelf-copy"><div><h3><a href="#read/'+book.id+'/1">'+escape(book.title)+'</a></h3><p>'+escape(book.author)+'<span>·</span>'+escape(book.genre)+'</p></div><a href="#read/'+book.id+'/1" class="open-book" aria-label="'+escape(book.title)+' 펼치기">'+icon('arrow',20)+'</a></div></article>';
   }

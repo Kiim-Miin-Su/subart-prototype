@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 320" width="640" height="320">
+  <title>옥상 전파상</title><desc>저녁 옥상 난간 위에 주파수 다이얼이 켜진 트랜지스터 라디오가 놓여 있다.</desc>
+  <defs>
+    <pattern id="speaker" width="8" height="8" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.4" fill="#222f31"/><circle cx="6" cy="6" r="1.4" fill="#222f31"/></pattern>
+    <pattern id="ticks" width="7" height="10" patternUnits="userSpaceOnUse"><path d="M1 4v6" stroke="#e3c89b" stroke-width="1.5"/></pattern>
+  </defs>
+  <path fill="#9db2ac" d="M0 0h640v320H0z"/>
+  <path d="M0 140h47v-18h48v14h53v-28h31v12h43v18h36v-20h42v22h35v-38h50v21h44v23h31v-47h57v31h19v-17h48v20h56v57H0z" fill="#7c9690"/>
+  <path d="M0 190h57v-35h66v27h41v-39h63v28h57v-19h50v33h41v-48h55v18h42v22h36v-41h44v17h88v55H0z" fill="#516f6e"/>
+  <path d="M32 169V59m-29 14h77m-58-14 36 26m-39-15 22 17m26-26 19 15m454 85V81m-34 12h64m-42-22 31 23" fill="none" stroke="#485e5c" stroke-width="2"/>
+  <path d="M0 191q201-12 354-5 163 8 286-1v135H0z" fill="#4b5c59"/>
+  <path d="m0 240 640-18v98H0z" fill="#354849"/><path d="m0 241 640-18m-640 31 640-18" stroke="#778c7f" stroke-width="2"/>
+  <path d="m196 241 165-34 111 14-104 30z" fill="#273b3d"/>
+  <g transform="rotate(-3 324 170)">
+    <path d="m226 128 111-82" fill="none" stroke="#394a48" stroke-width="4"/><path d="m291 81 46-35" fill="none" stroke="#e3d5b7" stroke-width="2"/>
+    <path d="M262 125v-14q1-9 12-9h92q9 0 10 9v12" fill="none" stroke="#344444" stroke-width="6"/>
+    <rect x="217" y="119" width="211" height="109" rx="9" fill="#344747"/>
+    <rect x="216" y="115" width="207" height="107" rx="8" fill="#b8b89a"/>
+    <rect x="223" y="123" width="193" height="28" rx="2" fill="#31494a"/>
+    <path d="M230 132h177v11H230z" fill="url(#ticks)"/><path d="M334 124v24" stroke="#dc8059" stroke-width="3"/>
+    <rect x="227" y="157" width="128" height="56" rx="4" fill="#829184"/><rect x="227" y="157" width="128" height="56" rx="4" fill="url(#speaker)"/>
+    <circle cx="387" cy="183" r="21" fill="#586b63"/><circle cx="386" cy="181" r="16" fill="#d7cbb0"/><path d="m386 181 9-9" stroke="#5c6660" stroke-width="3"/>
+    <path d="M246 113h23m9 0h22" stroke="#d0c4a4" stroke-width="5"/>
+  </g>
+  <path d="M432 214q30-24 58-13t65-2 85 4" fill="none" stroke="#263d3d" stroke-width="3"/>
+</svg>
