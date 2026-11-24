@@ -72,6 +72,15 @@
 .rd-reading-head>p:last-child {font-size:.9rem;color:var(--muted)}
 .rd-prose {font:400 clamp(1.15rem,1.47vw,1.38rem)/2.08 var(--sans);max-width:66ch;color:var(--ink);padding:25px 0 32px;word-break:keep-all;overflow-wrap:anywhere;letter-spacing:-.02em}
 .rd-prose p+p {margin-top:1.4em}
+.rd-webtoon .rd-article {min-width:0}
+.rd-webtoon .rd-panel-strip {display:grid;gap:clamp(52px,9vw,108px);width:min(100%,580px);margin-inline:auto;padding:clamp(22px,4vw,42px) 0 clamp(40px,7vw,78px)}
+.rd-panel-strip figure {margin:0}
+.rd-panel-strip img {display:block;width:100%;height:auto}
+.rd-panel-strip figcaption {padding:clamp(16px,3vw,26px) clamp(6px,2vw,24px) 0;word-break:keep-all;overflow-wrap:anywhere}
+.rd-panel-caption {max-width:32em;color:var(--ink);font-size:clamp(1rem,1.5vw,1.18rem);line-height:1.8}
+.rd-panel-dialogue {position:relative;display:table;padding:9px 18px;border:1px solid var(--ink);border-radius:20px;background:var(--surface);color:var(--ink);font-weight:600;line-height:1.6}
+.rd-panel-dialogue::before {content:"";position:absolute;top:-5px;left:20px;width:8px;height:8px;transform:rotate(45deg);background:var(--surface);border-top:1px solid var(--ink);border-left:1px solid var(--ink)}
+.rd-webtoon .rd-episodes {margin-top:24px}
 .rd-read-next {padding:20px 0 30px;border-top:1px solid var(--line)}
 .rd-reader-aside {position:sticky;top:95px;padding-top:10px}
 .rd-read-controls {padding:24px;background:var(--surface);border:1px solid var(--line);border-radius:var(--card-radius)}

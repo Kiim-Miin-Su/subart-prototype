@@ -1,4 +1,4 @@
-/* Original local fiction and instrumental sketches. Public routes number episodes from one. */
+/* Original local stories and instrumental sketches. Public routes number episodes from one. */
 window.SubartCatalog = [
   {
     id: "moon",
@@ -299,6 +299,39 @@ window.SubartCatalog = [
     episodes: [
       {title: "푸른 물비늘", version: "v1", free: true, audio: "./assets/yeoul-1.mp3", duration: 13.46},
       {title: "밀물이 지난 자리", version: "v1", free: false, audio: "./assets/yeoul-2.mp3", duration: 14.90}
+    ]
+  },
+  {
+    id: "lost-found",
+    title: "막차의 분실물",
+    author: "연우",
+    category: "웹툰",
+    genre: "일상 미스터리",
+    cover: "./assets/lost-found-cover.webp",
+    blurb: "막차의 빈 좌석에 남겨진 노란 우산. 종점에 도착한 기사가 우산 끈에서 종이학을 발견한다.",
+    episodes: [
+      {
+        title: "종점의 노란 우산",
+        version: "v1",
+        free: true,
+        panels: [
+          {
+            src: "./assets/lost-found-1.webp",
+            alt: "아이보리 재킷을 입은 승객이 내린다. 초록 좌석에 접힌 노란 우산이 남았다.",
+            caption: "마지막 손님이 내렸다. 어느새 비가 그쳐 있었다."
+          },
+          {
+            src: "./assets/lost-found-2.webp",
+            alt: "차고지에 도착한 단발머리의 여성 기사가 좌석에 놓인 우산을 본다.",
+            dialogue: "또 두고 가셨네."
+          },
+          {
+            src: "./assets/lost-found-3.webp",
+            alt: "기사의 손끝에 우산 끈과 하얀 종이학이 걸려 있다. 학의 날개에 짧은 청록색 선이 보인다.",
+            caption: "날개에 그어진 저 선. 내일 첫차가 도는 길이었다."
+          }
+        ]
+      }
     ]
   }
 ];

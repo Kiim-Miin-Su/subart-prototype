@@ -101,37 +101,90 @@
   function visible(book) {
     return book.published!==false && !(book.id==='moon' && window.SubartWorkspace?.isWithdrawn?.());
   }
+  const genres = [
+    {route:'', label:'웹소설'},
+    {route:'webtoon', label:'웹툰'},
+    {route:'music', label:'음악'}
+  ];
+  const homeGenre = route => genres.find(genre => genre.route === route) || genres[0];
+  const categoryOf = book => book.category || '웹소설';
+  const publishedEpisodes = book => book.episodes
+    .map((ep, index) => ({...ep, number:index + 1}))
+    .filter(ep => ep.published !== false);
+  const readUrl = (book, ep) => '#read/' + encodeURIComponent(book.id) + '/' + ep.number;
+
   function galleryCard(book) {
-    const marked=state.saved.includes(book.id);
-    const firstAction=book.category === '음악' ? ' 첫 트랙 듣기' : ' 첫 화 읽기';
-    return '<article class="shelf-card"><a href="#read/'+book.id+'/1" class="jacket '+book.id+'" aria-label="'+escape(book.title)+firstAction+'"><img alt="" src="'+book.cover+'" loading="lazy"></a>'+
-      '<button class="shelf-save'+(marked?' selected':'')+'" type="button" data-save="'+book.id+'" aria-pressed="'+marked+'" aria-label="'+escape(book.title)+' 서재에 저장">'+icon('bookmark',17)+'</button>'+
-      '<div class="shelf-copy"><div><h3><a href="#read/'+book.id+'/1">'+escape(book.title)+'</a></h3><p>'+escape(book.author)+'<span>·</span>'+escape(book.genre)+'</p></div><a href="#read/'+book.id+'/1" class="open-book" aria-label="'+escape(book.title)+firstAction+'">'+icon('arrow',20)+'</a></div></article>';
+    const episodes = publishedEpisodes(book);
+    const music = book.category === '음악';
+    const first = readUrl(book, episodes[0]);
+    const saved = state.saved.includes(book.id);
+    const count = episodes.length + (music ? '곡' : '화');
+    return '<article class="shelf-card"><a class="jacket" href="' + first + '" aria-label="' + escape(book.title) + ' 첫 ' + (music ? '트랙 듣기' : '화 보기') +
+      '"><img src="' + escape(book.cover) + '" loading="lazy" alt=""></a><div class="shelf-copy"><h3><a href="' + first + '">' +
+      escape(book.title) + '</a></h3><p>' + escape(book.author) + ' · ' + escape(book.genre) + '</p></div>' +
+      '<button class="shelf-save" type="button" data-save="' + escape(book.id) + '" aria-pressed="' + saved + '" aria-label="' +
+      escape(book.title) + ' 서재에 저장">' + icon('bookmark',18) + '</button><details class="chapter-menu"><summary>' +
+      (music ? '수록곡 · ' : '회차 목록 · ') + count + icon('chevron-down',14) + '</summary><ol>' + episodes.map(ep =>
+        '<li><a href="' + readUrl(book,ep) + '"><span>' + ep.number + (music ? '번' : '화') + '</span><strong>' + escape(ep.title) +
+        '</strong><small>' + (ep.free ? '무료' : '구독') + '</small></a></li>').join('') + '</ol></details></article>';
   }
-  function home(music) {
-    const category = music ? '음악' : '웹소설';
-    const available=books.filter(b=>visible(b) && (b.category || '웹소설') === category);
-    const navigation = '<div class="discovery-bar"><nav class="genre-tabs" aria-label="작품 장르">' +
-      '<a href="#home"' + (!music ? ' aria-current="page"' : '') + '>웹소설</a>' +
-      '<a href="#home/music"' + (music ? ' aria-current="page"' : '') + '>음악</a></nav>' +
-      '<a class="pass-link" href="#subscribe">프리패스 보기 ' + icon('arrow',16) + '</a></div>';
-    const feature=available[0];
-    if (!feature) return '<div class="catalog-home">'+navigation+'<h1>'+category+'</h1><p>현재 공개 중인 작품이 없습니다.</p></div>';
-    const followed=state.following.includes(feature.author);
-    const first=feature.episodes[0];
-    const remaining=available.slice(1);
-    const trackList=music ? '<section class="shelf" aria-labelledby="tracks-title"><div class="shelf-heading"><h2 id="tracks-title">수록곡</h2><span>'+feature.episodes.length+'곡</span></div><ol class="track-list">'+
-      feature.episodes.map((ep,i)=>'<li><a href="#read/'+feature.id+'/'+(i+1)+'"><span class="track-number">'+String(i+1).padStart(2,'0')+'</span><strong>'+escape(ep.title)+'</strong><small>'+ (ep.free ? '무료 듣기' : '구독 트랙') +'</small>'+icon(ep.free?'play':'arrow',16)+'</a></li>').join('')+'</ol></section>' : '';
-    const shelf=remaining.length ? '<section class="shelf" aria-labelledby="shelf-title"><div class="shelf-heading"><h2 id="shelf-title">'+(music?'다음에 들을 음반':'다음에 펼칠 작품')+'</h2><span>작품 '+remaining.length+'편</span></div><div class="shelf-grid">'+remaining.map(galleryCard).join('')+'</div></section>' : '';
-    return '<div class="catalog-home">'+navigation+'<section class="feature" aria-labelledby="featured-title"><div class="feature-copy">'+
-      '<div class="feature-kicker">'+(music?'이번 주 음반':'편집자의 서가')+'</div>'+
-      '<p class="edition"><span>'+escape(feature.genre)+'</span><span>'+(music?'싱글':'연재 중')+'</span></p>'+
-      '<h1 id="featured-title">'+escape(feature.title)+'</h1><p class="feature-author">'+escape(feature.author)+(music?'':' 지음')+'</p>'+
-      '<p class="feature-blurb">'+escape(feature.blurb)+'</p><div class="feature-actions">'+
-      '<a class="feature-read" href="#read/'+feature.id+'/1">'+icon(music?'play':'book',19)+(music?'첫 트랙 듣기':'첫 화 읽기')+icon('arrow',18)+'</a>'+
-      '<button type="button" class="feature-follow" data-follow="'+escape(feature.author)+'" aria-pressed="'+followed+'">'+icon(followed?'check':'plus',16)+(followed?'팔로잉':music?'아티스트 팔로우':'작가 팔로우')+'</button></div></div>'+
-      '<a class="feature-art '+feature.id+'" href="#read/'+feature.id+'/1" aria-label="'+escape(feature.title)+(music?' 첫 트랙 ':' 첫 화 ')+escape(first.title)+'"><img src="'+feature.cover+'" '+(feature.id==='moon'?'srcset="./assets/moon-small.webp 680w, ./assets/moon.webp 1254w" sizes="(max-width:700px) 264px, 320px" ':'')+'alt="'+(feature.id==='moon'?'보름달 아래 붉은 우편함과 불이 켜진 우체국':escape(feature.title)+' 표지')+'" fetchpriority="high"></a></section>'+
-      trackList+shelf+'</div>';
+
+  function feature(book, episodes) {
+    const music = book.category === '음악';
+    const toon = book.category === '웹툰';
+    const followed = state.following.includes(book.author);
+    const first = episodes[0];
+    const url = readUrl(book, first);
+    const action = music ? '첫 트랙 듣기' : toon ? '첫 화 보기' : '첫 화 읽기';
+    const primary = '<a class="feature-read" href="' + url + '">' + icon(music ? 'play' : 'book',18) + action + '</a>';
+    const follow = '<button type="button" class="feature-follow" data-follow="' + escape(book.author) + '" aria-pressed="' +
+      followed + '">' + icon(followed ? 'check' : 'plus',16) + (followed ? '팔로잉' : music ? '아티스트 팔로우' : '작가 팔로우') + '</button>';
+    const source = book.id === 'moon' ? ' srcset="./assets/moon-small.webp 680w, ./assets/moon.webp 1254w" sizes="(max-width:700px) 36vw, 280px"' : '';
+    const art = '<a class="feature-art" href="' + url + '" aria-label="' + escape(book.title + ' ' + action) + '"><img src="' +
+      escape(book.cover) + '"' + source + ' alt="' + escape(book.title) + ' 표지" fetchpriority="high"></a>';
+    const kind = music ? '음반' : toon ? '웹툰' : '웹소설';
+    const copy = '<div class="feature-copy"><p class="edition">' + escape(book.genre) + ' · ' + kind + '</p><h1 id="featured-title">' +
+      escape(book.title) + '</h1><p class="feature-author">' + escape(book.author) + (music ? '' : ' 작가') + '</p>' +
+      '<p class="feature-blurb">' + escape(book.blurb) + '</p><div class="feature-actions">' + primary + follow + '</div></div>';
+    return '<section class="feature" aria-labelledby="featured-title">' + (music || toon ? art + copy : copy + art) + '</section>';
+  }
+
+  function episodeList(book, episodes) {
+    const music = book.category === '음악';
+    const count = episodes.length + (music ? '곡' : '화');
+    const heading = music ? '수록곡' : '공개 회차';
+    const rows = episodes.map(ep => {
+      const url = readUrl(book, ep);
+      if (music) {
+        const seconds = Math.floor(ep.duration);
+        const duration = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2,'0');
+        return '<li><a href="' + url + '"><span class="unit-number">' + String(ep.number).padStart(2,'0') +
+          '</span><strong>' + escape(ep.title) + '</strong><time datetime="PT' + seconds + 'S">' + duration +
+          '</time><small>' + (ep.free ? '무료 듣기' : '구독 트랙') + '</small>' + icon(ep.free ? 'play' : 'arrow',16) + '</a></li>';
+      }
+      const thumbnail = ep.free && ep.panels?.[0]?.src || book.cover;
+      return '<li><a href="' + url + '"><img src="' + escape(thumbnail) + '" alt=""><span><small>' + ep.number + '화</small><strong>' +
+        escape(ep.title) + '</strong></span><small>' + (ep.free ? '무료' : '구독') + '</small>' + icon('chevron',18) + '</a></li>';
+    }).join('');
+    return '<section class="shelf" aria-labelledby="episodes-title"><div class="shelf-heading"><h2 id="episodes-title">' + heading +
+      '</h2><span>' + count + '</span></div><ol class="' + (music ? 'track-list' : 'comic-list') + '">' + rows + '</ol></section>';
+  }
+
+  function home(genre) {
+    const available = books.filter(book => visible(book) && categoryOf(book) === genre.label && publishedEpisodes(book).length);
+    const navigation = '<div class="discovery-bar"><nav class="genre-tabs" aria-label="작품 장르">' + genres.map(item =>
+      '<a href="#home' + (item.route ? '/' + item.route : '') + '"' + (item === genre ? ' aria-current="page"' : '') + '>' +
+      item.label + '</a>').join('') + '</nav><a class="pass-link" href="#subscribe">프리패스 보기 ' + icon('arrow',16) + '</a></div>';
+    const wrapper = '<div class="catalog-home genre-' + (genre.route || 'novel') + '">' + navigation;
+    if (!available.length) return wrapper + '<h1>' + genre.label + '</h1><p>현재 공개 중인 작품이 없습니다.</p></div>';
+    const book = available[0];
+    const episodes = publishedEpisodes(book);
+    const works = genre.route ? available.slice(1) : available;
+    const list = genre.route ? episodeList(book, episodes) : '';
+    const shelfTitle = genre.route === 'music' ? '다른 음반' : genre.route === 'webtoon' ? '다른 웹툰' : '작품 서가';
+    const shelf = works.length ? '<section class="shelf" aria-labelledby="shelf-title"><div class="shelf-heading"><h2 id="shelf-title">' +
+      shelfTitle + '</h2><span>' + works.length + '편</span></div><div class="shelf-grid">' + works.map(galleryCard).join('') + '</div></section>' : '';
+    return wrapper + feature(book,episodes) + list + shelf + '</div>';
   }
   const names={home:'홈',library:'내 서재',community:'커뮤니티',read:'작품 읽기',subscribe:'구독권 선택',account:'구독 관리',report:'신고',studio:'창작자 작업실',ops:'운영 콘솔'};
   function render() {
@@ -150,8 +203,9 @@
     const isHome=route==='home';
     const workspace=['studio','ops'].includes(route);
     document.body.dataset.page=route;
-    const isAudio=route==='read' && books.find(b=>b.id===parts[1])?.category==='음악';
-    document.title=(isAudio?'트랙 듣기':names[route] || '페이지 찾기')+' · Subart';
+    const format=route==='read' && books.find(b=>b.id===parts[1])?.category;
+    const title=isHome ? homeGenre(parts[1]).label : format==='음악' ? '트랙 듣기' : format==='웹툰' ? '웹툰 보기' : names[route];
+    document.title=(title || '페이지 찾기')+' · Subart';
     spaces.open=false;
     if(dialog.open) dialog.close();
     const activeTab=({subscribe:'library',account:'library',report:'community'})[route]||route;
@@ -160,7 +214,7 @@
       else a.removeAttribute('aria-current');
     });
     let html;
-    if(isHome) html=home(parts[1]==='music');
+    if(isHome) html=home(homeGenre(parts[1]));
     else if(workspace) html=window.SubartWorkspace.render(parts);
     else if(known) html=window.SubartReader.render(parts);
     else html='<section class="missing"><h1>화면을 찾을 수 없어요</h1><a href="#home">홈으로 가기 →</a></section>';
@@ -175,15 +229,29 @@
   window.Subart={books,state,save,go,icon,escape,notify,render,readHash};
   document.querySelectorAll('[data-icon]').forEach(n=>{n.innerHTML=icon(n.dataset.icon,n.classList.contains('caret')?14:19);});
   function showResults(query) {
-    const term=query.trim().toLocaleLowerCase('ko-KR');
-    const parts=readHash();
-    const scope=parts[0]==='home' ? (parts[1]==='music'?'음악':'웹소설') : '';
-    document.getElementById('search-title').textContent=scope ? scope+' 검색' : '작품 검색';
-    const hits=books.filter(b=>{
-      const category=b.category || '웹소설';
-      return visible(b) && (!scope || category===scope) && [b.title,b.author,b.genre,category].some(s=>s.toLocaleLowerCase('ko-KR').includes(term));
-    });
-    document.getElementById('search-results').innerHTML=hits.length?hits.map(b=>'<a class="result" href="#read/'+b.id+'/1"><img src="'+b.cover+'" alt=""><span><strong>'+escape(b.title)+'</strong><small>'+escape(b.author)+' · '+escape(b.genre)+'</small></span>'+icon('arrow',17)+'</a>').join(''):'<p class="no-result">검색 결과가 없어요. 작품명이나 창작자 이름으로 다시 찾아보세요.</p>';
+    const term = query.trim().toLocaleLowerCase('ko-KR');
+    const parts = readHash();
+    const scope = parts[0] === 'home' ? homeGenre(parts[1]).label : '';
+    const prompt = scope === '음악' ? '앨범, 아티스트, 곡명' : scope ? '작품명, 작가, 회차명' : '작품명, 창작자, 회차 또는 곡명';
+    document.getElementById('search-title').textContent = scope ? scope + ' 검색' : '작품 검색';
+    searchField.placeholder = prompt;
+    searchField.ariaLabel = prompt;
+    const hits = [];
+    for (const book of books) {
+      const category = categoryOf(book);
+      if (!visible(book) || (scope && category !== scope)) continue;
+      const episodes = publishedEpisodes(book);
+      if (!episodes.length) continue;
+      const workMatches = [book.title,book.author,book.genre,category].some(value => value.toLocaleLowerCase('ko-KR').includes(term));
+      const selected = workMatches ? [episodes[0]] : episodes.filter(ep => ep.title.toLocaleLowerCase('ko-KR').includes(term));
+      for (const ep of selected) {
+        const title = workMatches ? book.title : ep.title;
+        const meta = workMatches ? book.author + ' · ' + book.genre : book.title + ' · ' + (category === '음악' ? '트랙 ' + ep.number : ep.number + '화');
+        hits.push('<a class="result" href="' + readUrl(book,ep) + '"><img src="' + escape(book.cover) + '" alt=""><span><strong>' +
+          escape(title) + '</strong><small>' + escape(meta) + '</small></span>' + icon('arrow',17) + '</a>');
+      }
+    }
+    document.getElementById('search-results').innerHTML = hits.length ? hits.join('') : '<p class="no-result">검색 결과가 없어요. 다른 이름으로 찾아보세요.</p>';
   }
   const searchField=document.getElementById('search-input');
   document.getElementById('search-open').addEventListener('click',()=>{spaces.open=false;searchField.value='';showResults('');dialog.showModal();searchField.focus();});

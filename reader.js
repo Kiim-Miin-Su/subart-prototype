@@ -76,19 +76,28 @@
   function episodeNumber(book, index) {
     return book.category === '음악' ? '트랙 ' + (index + 1) : (index + 1) + '화';
   }
+  function episodeTerms(ep) {
+    if (ep.audio) return ep.free ? '무료 듣기' : '구독 트랙';
+    if (ep.panels && ep.free) return '무료 회차';
+    return ep.free ? '무료 미리보기' : '구독 회차';
+  }
   function progressFor(book, index) {
     const {state} = app();
     const latest = state.progress[book.id];
     const p = index === undefined || latest?.episode === index ? latest : state.chapterProgress?.[book.id]?.[index];
     if (!p || !Number.isInteger(p.episode) || !book.episodes[p.episode]) return null;
     const ep = book.episodes[p.episode];
-    const last = ep.audio ? ep.duration : Math.max(1, ep.paragraphs.length - 1);
-    const position = Math.max(0, Math.min(last, Number(ep.audio ? p.seconds : p.paragraph) || 0));
+    const last = ep.audio ? ep.duration : Math.max(1, (ep.panels || ep.paragraphs).length - 1);
+    const savedPosition = ep.audio ? p.seconds : ep.panels ? p.panel : p.paragraph;
+    const position = Math.max(0, Math.min(last, Number(savedPosition) || 0));
     const percent = p.version === version(book, p.episode) ? Math.round(100 * position / last) : 0;
     return {...p, percent};
   }
-  function progressLine(percent, music = false) {
-    return '<div class="rd-progress-line"><progress max="100" value="' + percent + '" aria-label="' + (music ? '재생 위치' : '읽은 위치') + '">' + percent + '%</progress><span>' + percent + (music ? '% 들음' : '% 읽음') + '</span></div>';
+  function progressUnit(book) {
+    return book.category === '음악' ? '% 들음' : book.category === '웹툰' ? '% 봄' : '% 읽음';
+  }
+  function progressLine(percent, book) {
+    return '<div class="rd-progress-line"><progress max="100" value="' + percent + '" aria-label="감상 위치">' + percent + '%</progress><span>' + percent + progressUnit(book) + '</span></div>';
   }
   function episodes(book, current) {
     const music = book.category === '음악';
@@ -96,7 +105,7 @@
       book.episodes.map((ep, i) => {
         const isCurrent = current?.episode === i;
         const status = access(book, i);
-        const meta = status === 'closed' ? '공개 종료' : ep.free ? (music ? '무료 듣기' : '무료 미리보기') : (music ? '구독 트랙' : '구독 회차');
+        const meta = status === 'closed' ? '공개 종료' : episodeTerms(ep);
         return '<li><a class="rd-episode' + (isCurrent ? ' is-current' : '') + '" href="' + linkToRead(book, i, !!progressFor(book,i)) + '"><span class="rd-number">' + String(i + 1).padStart(2, '0') + '</span><span class="rd-episode-name"><strong>' + escape(ep.title) + '</strong><small>' + escape(version(book, i)) + ' · ' + meta + '</small></span><span class="rd-episode-end">' + (isCurrent ? (music ? '듣는 중' : '읽는 중') : status === 'locked' ? '구독' : '→') + '</span></a></li>';
       }).join('') + '</ol></section>';
   }
@@ -106,12 +115,12 @@
     const book = recent[0];
     const p = book && progressFor(book);
     const saved = books.filter(b => state.saved.includes(b.id));
-    const lastRead = book ? '<div class="rd-current"><div class="rd-current-cover">' + cover(book) + '</div><div class="rd-current-info"><span class="rd-byline">' + escape(book.author) + ' · ' + escape(book.genre) + '</span><h3>' + escape(book.title) + '</h3><p>' + episodeNumber(book, p.episode) + ' · ' + escape(book.episodes[p.episode].title) + '</p>' + progressLine(p.percent, book.category === '음악') + '</div></div>' +
-      action(linkToRead(book, p.episode, true), book.category === '음악' ? '마지막 위치에서 이어듣기' : '마지막 위치에서 이어읽기') : empty('아직 감상한 작품이 없습니다.', '#home', '서가에서 작품 찾기');
+    const lastRead = book ? '<div class="rd-current"><div class="rd-current-cover">' + cover(book) + '</div><div class="rd-current-info"><span class="rd-byline">' + escape(book.author) + ' · ' + escape(book.genre) + '</span><h3>' + escape(book.title) + '</h3><p>' + episodeNumber(book, p.episode) + ' · ' + escape(book.episodes[p.episode].title) + '</p>' + progressLine(p.percent, book) + '</div></div>' +
+      action(linkToRead(book, p.episode, true), book.category === '음악' ? '마지막 위치에서 이어듣기' : book.category === '웹툰' ? '마지막 컷에서 이어보기' : '마지막 위치에서 이어읽기') : empty('아직 감상한 작품이 없습니다.', '#home', '서가에서 작품 찾기');
     const otherBooks = recent.slice(1);
     const history = otherBooks.length ? more('이전에 감상한 작품 ' + otherBooks.length + '편', '<ul class="rd-history-list">' + otherBooks.map(b => {
       const mark = progressFor(b);
-      return '<li><a class="rd-link" href="' + linkToRead(b, mark.episode, true) + '">' + escape(b.title) + ' · ' + episodeNumber(b, mark.episode) + '</a><span>' + mark.percent + (b.category === '음악' ? '% 들음' : '% 읽음') + '</span></li>';
+      return '<li><a class="rd-link" href="' + linkToRead(b, mark.episode, true) + '">' + escape(b.title) + ' · ' + episodeNumber(b, mark.episode) + '</a><span>' + mark.percent + progressUnit(b) + '</span></li>';
     }).join('') + '</ul>') : '';
     const savedGrid = saved.length ? '<ul class="rd-saved-grid">' + saved.map(b => '<li><a href="' + linkToRead(b, progressFor(b)?.episode || 0, !!progressFor(b)) + '">' + cover(b) + '<span><strong>' + escape(b.title) + '</strong><small>' + escape(b.author) + ' · ' + escape(b.genre) + '</small></span></a><button class="rd-remove" type="button" data-reader-action="unsave" data-book="' + escape(b.id) + '" aria-label="' + escape(b.title) + ' 저장 해제">저장 해제</button></li>').join('') + '</ul>' : empty('저장한 작품이 없습니다.', '#home', '작품 둘러보기');
     return page(header('내 서재', link('#account', '구독 관리 →')) + '<div class="rd-library-layout"><section class="rd-recent"><h2>최근 감상한 작품</h2>' + lastRead + history + '</section>' + (book ? episodes(book, p) : '') +
@@ -123,6 +132,14 @@
   function followButton(book) {
     const selected = app().state.following.includes(book.author);
     return '<button class="rd-toggle" type="button" data-reader-action="follow" data-book="' + escape(book.id) + '" aria-pressed="' + selected + '">' + (selected ? '팔로잉' : book.category === '음악' ? '아티스트 팔로우' : '작가 팔로우') + '</button>';
+  }
+  function panelStrip(panels) {
+    return '<ol class="rd-panel-strip" aria-label="웹툰 본문">' + panels.map((panel, i) => {
+      const lines = (panel.caption ? '<p class="rd-panel-caption">' + escape(panel.caption) + '</p>' : '') +
+        (panel.dialogue ? '<p class="rd-panel-dialogue">' + escape(panel.dialogue) + '</p>' : '');
+      return '<li data-panel="' + i + '"><figure><img width="624" height="624" src="' + escape(panel.src) + '" alt="' + escape(panel.alt) +
+        '"><figcaption>' + lines + '</figcaption></figure></li>';
+    }).join('') + '</ol>';
   }
   function read(parts) {
     const target = routeBook(parts);
@@ -136,8 +153,9 @@
     const changed = parts[3] === 'continue' && p?.episode === index && p.version !== version(book, index);
     const context = '<a class="rd-back" href="#library">← 내 서재</a>';
     const music = book.category === '음악';
+    const comic = !!ep.panels;
     const label = episodeNumber(book, index);
-    const title = '<header class="rd-reading-head"><p class="rd-byline">' + escape(book.title) + ' <span>/</span> ' + label + '</p><h1>' + escape(ep.title) + '</h1><p>' + escape(book.author) + ' · 개정 ' + escape(version(book, index)) + ' · ' + (music ? (ep.free ? '무료 듣기' : '구독 트랙') : (ep.free ? '무료 미리보기' : '구독 회차')) + '</p></header>';
+    const title = '<header class="rd-reading-head"><p class="rd-byline">' + escape(book.title) + ' <span>/</span> ' + label + '</p><h1>' + escape(ep.title) + '</h1><p>' + escape(book.author) + ' · 개정 ' + escape(version(book, index)) + ' · ' + episodeTerms(ep) + '</p></header>';
     if (permission === 'closed') return page(context + title + empty('공개가 종료된 작품입니다.', '#home', '다른 작품 찾기'), 'rd-reading');
     if (permission === 'locked') {
       const active = activeSubscription();
@@ -155,13 +173,15 @@
         escape(ep.title) + ' 듣기"></audio><div class="rd-actions">' + follow + save + '</div></div></section>';
       return page(context + player + episodes(book, p) + link(linkToReport(book,index), '작품 신고'), 'rd-reading');
     }
+    const body = comic ? panelStrip(ep.panels) : '<div class="rd-prose">' + ep.paragraphs.map((text, i) => '<p data-paragraph="' + i + '">' + escape(text) + '</p>').join('') + '</div>';
     return page(context + '<div class="rd-read-layout"><article class="rd-article">' + title +
       (changed ? '<p class="rd-notice" role="status">새 개정판이 공개되어 이 회차의 처음부터 엽니다.</p>' : '') +
-      '<div class="rd-prose">' + ep.paragraphs.map((text, i) => '<p data-paragraph="' + i + '">' + escape(text) + '</p>').join('') + '</div>' +
+      body +
       '<div class="rd-read-next">' + (book.episodes[index + 1] ? action(linkToRead(book, index + 1), '다음 회차 읽기') : link('#library', '내 서재로 돌아가기 →')) + '</div></article>' +
-      '<aside class="rd-reader-aside" aria-label="작품 정보"><div class="rd-read-controls"><span class="rd-byline">현재 회차</span><h2>' + escape(book.title) + '</h2><p>' + (index + 1) + '화 · ' + escape(ep.title) + '</p><div id="rd-live-position">' + progressLine(parts[3] === 'continue' && p?.episode === index ? p.percent : 0) + '</div>' +
+      '<aside class="rd-reader-aside" aria-label="작품 정보"><div class="rd-read-controls"><span class="rd-byline">현재 회차</span><h2>' + escape(book.title) + '</h2><p>' + (index + 1) + '화 · ' + escape(ep.title) + '</p><div id="rd-live-position">' + progressLine(parts[3] === 'continue' && p?.episode === index ? p.percent : 0, book) + '</div>' +
       '<div class="rd-actions">' + followButton(book) + '<button class="rd-toggle" type="button" data-reader-action="save" data-book="' + escape(book.id) + '" aria-pressed="' + saved + '">' + (saved ? '저장됨' : '서재에 저장') + '</button></div><hr>' +
-      link(linkToFeed(book, index), '이 회차의 커뮤니티 →') + '<br>' + link(linkToReport(book, index), '작품 신고') + '</div></aside></div>', 'rd-reading');
+      link(linkToFeed(book, index), '이 회차의 커뮤니티 →') + '<br>' + link(linkToReport(book, index), '작품 신고') + '</div>' +
+      (comic ? episodes(book, p) + link('#home/webtoon', '웹툰 홈 →') : '') + '</aside></div>', comic ? 'rd-reading rd-webtoon' : 'rd-reading');
   }
   function authorNote(note) {
     const book = bookById(note.bookId);
@@ -442,14 +462,16 @@
       if (audio) trackListening(audio, target, parts[3] === 'continue');
       return;
     }
-    const paragraphs = [...root().querySelectorAll('[data-paragraph]')];
-    if (!target || !paragraphs.length) return;
+    if (!target) return;
     const {book,index} = target;
+    const positionField = book.episodes[index].panels ? 'panel' : 'paragraph';
+    const anchors = [...root().querySelectorAll('[data-' + positionField + ']')];
+    if (!anchors.length) return;
     const v = version(book, index);
     const state = app().state;
     const previous = progressFor(book, index);
     const resume = parts[3] === 'continue' && previous?.episode === index && previous?.version === v;
-    let position = resume ? Math.min(paragraphs.length - 1, Math.max(0, Number(previous.paragraph) || 0)) : 0;
+    let position = resume ? Math.min(anchors.length - 1, Math.max(0, Number(previous[positionField]) || 0)) : 0;
     let timer, frame;
     const persist = () => {
       clearTimeout(timer);
@@ -457,7 +479,7 @@
       const chapters = history[book.id] ||= {};
       const last = state.progress[book.id];
       if (last && !chapters[last.episode]) chapters[last.episode] = last;
-      const reading = {episode:index, paragraph:position, version:v, updated:Date.now()};
+      const reading = {episode:index, [positionField]:position, version:v, updated:Date.now()};
       chapters[index] = reading;
       state.progress[book.id] = reading;
       app().save();
@@ -465,14 +487,14 @@
     function positionChanged() {
       const top = window.innerHeight * .29;
       let next = 0;
-      for (let i = 1; i < paragraphs.length && paragraphs[i].getBoundingClientRect().top <= top + 1; i++) next = i;
+      for (let i = 1; i < anchors.length && anchors[i].getBoundingClientRect().top <= top + 1; i++) next = i;
       if (window.scrollY > 0 && window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2) {
-        next = paragraphs.length - 1;
+        next = anchors.length - 1;
       }
       if (next === position) return;
       position = next;
       const display = document.getElementById('rd-live-position');
-      if (display) display.innerHTML = progressLine(Math.round(100 * next / Math.max(1, paragraphs.length - 1)));
+      if (display) display.innerHTML = progressLine(Math.round(100 * next / Math.max(1, anchors.length - 1)), book);
       clearTimeout(timer);
       timer = setTimeout(persist, 180);
     }
@@ -484,7 +506,7 @@
     // Render may reset the viewport; restore once after layout, then listen for deliberate scrolling.
     frame = requestAnimationFrame(() => {
       if (resume && position > 0) {
-        window.scrollTo({top:Math.max(0, window.scrollY + paragraphs[position].getBoundingClientRect().top - window.innerHeight * .29), behavior:'instant'});
+        window.scrollTo({top:Math.max(0, window.scrollY + anchors[position].getBoundingClientRect().top - window.innerHeight * .29), behavior:'instant'});
       }
       persist();
       window.addEventListener('scroll', onScroll, {passive:true});
