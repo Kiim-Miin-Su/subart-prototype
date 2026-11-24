@@ -1,4 +1,4 @@
-/* Original local fiction. Public routes number episodes from one. */
+/* Original local fiction and instrumental sketches. Public routes number episodes from one. */
 window.SubartCatalog = [
   {
     id: "moon",
@@ -291,6 +291,14 @@ window.SubartCatalog = [
           "수선한 악보에는 여전히 쉼표가 남아 있다. 이제 그 마디에서 들리는 것은 의자 소리 대신 세 사람이 다시 시작할 때까지 서로를 기다리는 숨이다."
         ]
       }
+    ]
+  },
+  {
+    id: "yeoul", title: "물결의 간격", author: "여울", category: "음악", genre: "앰비언트", artistPrice: 3500,
+    cover: "./assets/yeoul.webp", blurb: "건반 두 음이 번갈아 닿고, 낮은 화음이 천천히 물러납니다.",
+    episodes: [
+      {title: "푸른 물비늘", version: "v1", free: true, audio: "./assets/yeoul-1.mp3", duration: 13.46},
+      {title: "밀물이 지난 자리", version: "v1", free: false, audio: "./assets/yeoul-2.mp3", duration: 14.90}
     ]
   }
 ];

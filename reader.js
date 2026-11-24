@@ -12,20 +12,35 @@
   const uid = () => window.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   let leaveReading = null;
   const plans = {
-    topic: {label: '웹소설 주제별', price: 3900, note: '웹소설 분야의 구독 회차'},
-    artist: {label: '이담 작가', price: 2900, note: '이담이 공개한 작품의 구독 회차'},
-    all: {label: '올패스', price: 4900, note: '모든 분야의 구독 대상 회차'}
+    artist: {label:'아티스트 프리패스', note:'선택한 아티스트의 구독 작품'},
+    topic: {label:'장르 프리패스', note:'선택한 장르의 구독 작품'},
+    all: {label:'올패스', note:'여러 장르의 구독 대상 작품', price:9900}
   };
+  const genrePrices = {'음악':4990,'웹소설':6990};
+  const categoryOf = book => book.category ?? '웹소설';
+  function offerLabel(offer) {
+    if (offer.plan === 'artist') return (offer.artist ?? '이담') + ' · ' + plans.artist.label;
+    if (offer.plan === 'topic') return (offer.category ?? '웹소설') + ' · ' + plans.topic.label;
+    return plans[offer.plan]?.label || '이전 이용권';
+  }
 
-  const priceFor = id => id === 'artist' ? (window.SubartWorkspace?.artistPrice?.() ?? plans.artist.price) : plans[id].price;
+  function priceFor(plan, scope) {
+    if (plan === 'all') return plans.all.price;
+    if (plan === 'topic') return Object.hasOwn(genrePrices, scope) ? genrePrices[scope] : null;
+    if (plan !== 'artist' || !scope) return null;
+    const works = app().books.filter(book => book.author === scope);
+    if (!works.length) return null;
+    const amount = scope === '이담' ? window.SubartWorkspace?.artistPrice?.() ?? 2900 : works.find(book => book.artistPrice != null)?.artistPrice;
+    return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
+  }
 
   function version(book, index) {
     const change = book.id === 'moon' && index === 0 && window.SubartWorkspace?.publishedVersion?.();
     return change || book.episodes[index].version || 'v1';
   }
-  function planIncludes(plan, book, artist = firstBook().author) {
-    if (plan === 'topic') return (book.category ?? '웹소설') === '웹소설';
-    if (plan === 'artist') return book.author === artist;
+  function planIncludes(plan, book, scope) {
+    if (plan === 'topic') return categoryOf(book) === scope;
+    if (plan === 'artist') return book.author === scope;
     return plan === 'all' && !book.allPassExcluded;
   }
   function access(book, index) {
@@ -35,7 +50,9 @@
     if (ep.free) return 'free';
     const {subscribed, subscription} = app().state;
     if (!subscribed || (subscription?.endsAt && Date.now() >= subscription.endsAt)) return 'locked';
-    return planIncludes(subscription?.plan ?? 'topic', book, subscription?.artist) ? 'open' : 'locked';
+    const plan = subscription?.plan ?? 'topic';
+    const scope = plan === 'artist' ? subscription?.artist ?? '이담' : subscription?.category ?? '웹소설';
+    return planIncludes(plan, book, scope) ? 'open' : 'locked';
   }
   function routeBook(parts, offset = 1) {
     const book = bookById(parts[offset]);
@@ -56,26 +73,31 @@
   function page(content, extra = '') {
     return '<div class="rd-page ' + extra + '"><div class="rd-wrap">' + content + '</div></div>';
   }
+  function episodeNumber(book, index) {
+    return book.category === '음악' ? '트랙 ' + (index + 1) : (index + 1) + '화';
+  }
   function progressFor(book, index) {
     const {state} = app();
     const latest = state.progress[book.id];
     const p = index === undefined || latest?.episode === index ? latest : state.chapterProgress?.[book.id]?.[index];
     if (!p || !Number.isInteger(p.episode) || !book.episodes[p.episode]) return null;
-    const last = Math.max(1, book.episodes[p.episode].paragraphs.length - 1);
-    const position = Math.max(0, Math.min(last, Number(p.paragraph) || 0));
+    const ep = book.episodes[p.episode];
+    const last = ep.audio ? ep.duration : Math.max(1, ep.paragraphs.length - 1);
+    const position = Math.max(0, Math.min(last, Number(ep.audio ? p.seconds : p.paragraph) || 0));
     const percent = p.version === version(book, p.episode) ? Math.round(100 * position / last) : 0;
     return {...p, percent};
   }
-  function progressLine(percent) {
-    return '<div class="rd-progress-line"><progress max="100" value="' + percent + '" aria-label="읽은 위치">' + percent + '%</progress><span>' + percent + '% 읽음</span></div>';
+  function progressLine(percent, music = false) {
+    return '<div class="rd-progress-line"><progress max="100" value="' + percent + '" aria-label="' + (music ? '재생 위치' : '읽은 위치') + '">' + percent + '%</progress><span>' + percent + (music ? '% 들음' : '% 읽음') + '</span></div>';
   }
   function episodes(book, current) {
-    return '<section class="rd-episodes"><div class="rd-section-title"><h2>' + escape(book.title) + ' 회차</h2><span>첫 화부터</span></div><ol class="rd-episode-list">' +
+    const music = book.category === '음악';
+    return '<section class="rd-episodes"><div class="rd-section-title"><h2>' + escape(book.title) + (music ? ' 수록곡</h2><span>첫 곡부터' : ' 회차</h2><span>첫 화부터') + '</span></div><ol class="rd-episode-list">' +
       book.episodes.map((ep, i) => {
         const isCurrent = current?.episode === i;
         const status = access(book, i);
-        const meta = status === 'closed' ? '공개 종료' : ep.free ? '무료 미리보기' : '구독 회차';
-        return '<li><a class="rd-episode' + (isCurrent ? ' is-current' : '') + '" href="' + linkToRead(book, i, !!progressFor(book,i)) + '"><span class="rd-number">' + String(i + 1).padStart(2, '0') + '</span><span class="rd-episode-name"><strong>' + escape(ep.title) + '</strong><small>' + escape(version(book, i)) + ' · ' + meta + '</small></span><span class="rd-episode-end">' + (isCurrent ? '읽는 중' : status === 'locked' ? '구독' : '→') + '</span></a></li>';
+        const meta = status === 'closed' ? '공개 종료' : ep.free ? (music ? '무료 듣기' : '무료 미리보기') : (music ? '구독 트랙' : '구독 회차');
+        return '<li><a class="rd-episode' + (isCurrent ? ' is-current' : '') + '" href="' + linkToRead(book, i, !!progressFor(book,i)) + '"><span class="rd-number">' + String(i + 1).padStart(2, '0') + '</span><span class="rd-episode-name"><strong>' + escape(ep.title) + '</strong><small>' + escape(version(book, i)) + ' · ' + meta + '</small></span><span class="rd-episode-end">' + (isCurrent ? (music ? '듣는 중' : '읽는 중') : status === 'locked' ? '구독' : '→') + '</span></a></li>';
       }).join('') + '</ol></section>';
   }
   function library() {
@@ -84,15 +106,15 @@
     const book = recent[0];
     const p = book && progressFor(book);
     const saved = books.filter(b => state.saved.includes(b.id));
-    const lastRead = book ? '<div class="rd-current"><div class="rd-current-cover">' + cover(book) + '</div><div class="rd-current-info"><span class="rd-byline">' + escape(book.author) + ' · ' + escape(book.genre) + '</span><h3>' + escape(book.title) + '</h3><p>' + (p.episode + 1) + '화 ' + escape(book.episodes[p.episode].title) + '</p>' + progressLine(p.percent) + '</div></div>' +
-      action(linkToRead(book, p.episode, true), '마지막 위치에서 이어읽기') : empty('아직 읽은 작품이 없습니다.', '#home', '서가에서 작품 찾기');
+    const lastRead = book ? '<div class="rd-current"><div class="rd-current-cover">' + cover(book) + '</div><div class="rd-current-info"><span class="rd-byline">' + escape(book.author) + ' · ' + escape(book.genre) + '</span><h3>' + escape(book.title) + '</h3><p>' + episodeNumber(book, p.episode) + ' · ' + escape(book.episodes[p.episode].title) + '</p>' + progressLine(p.percent, book.category === '음악') + '</div></div>' +
+      action(linkToRead(book, p.episode, true), book.category === '음악' ? '마지막 위치에서 이어듣기' : '마지막 위치에서 이어읽기') : empty('아직 감상한 작품이 없습니다.', '#home', '서가에서 작품 찾기');
     const otherBooks = recent.slice(1);
-    const history = otherBooks.length ? more('이전에 읽은 작품 ' + otherBooks.length + '편', '<ul class="rd-history-list">' + otherBooks.map(b => {
+    const history = otherBooks.length ? more('이전에 감상한 작품 ' + otherBooks.length + '편', '<ul class="rd-history-list">' + otherBooks.map(b => {
       const mark = progressFor(b);
-      return '<li><a class="rd-link" href="' + linkToRead(b, mark.episode, true) + '">' + escape(b.title) + ' · ' + (mark.episode + 1) + '화</a><span>' + mark.percent + '% 읽음</span></li>';
+      return '<li><a class="rd-link" href="' + linkToRead(b, mark.episode, true) + '">' + escape(b.title) + ' · ' + episodeNumber(b, mark.episode) + '</a><span>' + mark.percent + (b.category === '음악' ? '% 들음' : '% 읽음') + '</span></li>';
     }).join('') + '</ul>') : '';
     const savedGrid = saved.length ? '<ul class="rd-saved-grid">' + saved.map(b => '<li><a href="' + linkToRead(b, progressFor(b)?.episode || 0, !!progressFor(b)) + '">' + cover(b) + '<span><strong>' + escape(b.title) + '</strong><small>' + escape(b.author) + ' · ' + escape(b.genre) + '</small></span></a><button class="rd-remove" type="button" data-reader-action="unsave" data-book="' + escape(b.id) + '" aria-label="' + escape(b.title) + ' 저장 해제">저장 해제</button></li>').join('') + '</ul>' : empty('저장한 작품이 없습니다.', '#home', '작품 둘러보기');
-    return page(header('내 서재', link('#account', '구독 관리 →')) + '<div class="rd-library-layout"><section class="rd-recent"><h2>최근 읽은 작품</h2>' + lastRead + history + '</section>' + (book ? episodes(book, p) : '') +
+    return page(header('내 서재', link('#account', '구독 관리 →')) + '<div class="rd-library-layout"><section class="rd-recent"><h2>최근 감상한 작품</h2>' + lastRead + history + '</section>' + (book ? episodes(book, p) : '') +
       '</div><section class="rd-saved"><div class="rd-section-title"><h2>저장한 작품</h2><span>' + saved.length + '편</span></div>' + savedGrid + '</section>', 'rd-library');
   }
   function more(label, content) {
@@ -100,7 +122,7 @@
   }
   function followButton(book) {
     const selected = app().state.following.includes(book.author);
-    return '<button class="rd-toggle" type="button" data-reader-action="follow" data-book="' + escape(book.id) + '" aria-pressed="' + selected + '">' + (selected ? '팔로잉' : '작가 팔로우') + '</button>';
+    return '<button class="rd-toggle" type="button" data-reader-action="follow" data-book="' + escape(book.id) + '" aria-pressed="' + selected + '">' + (selected ? '팔로잉' : book.category === '음악' ? '아티스트 팔로우' : '작가 팔로우') + '</button>';
   }
   function read(parts) {
     const target = routeBook(parts);
@@ -113,13 +135,25 @@
     const p = progressFor(book, index);
     const changed = parts[3] === 'continue' && p?.episode === index && p.version !== version(book, index);
     const context = '<a class="rd-back" href="#library">← 내 서재</a>';
-    const title = '<header class="rd-reading-head"><p class="rd-byline">' + escape(book.title) + ' <span>/</span> ' + (index + 1) + '화</p><h1>' + escape(ep.title) + '</h1><p>' + escape(book.author) + ' · 개정 ' + escape(version(book, index)) + ' · ' + (ep.free ? '무료 미리보기' : '구독 회차') + '</p></header>';
+    const music = book.category === '음악';
+    const label = episodeNumber(book, index);
+    const title = '<header class="rd-reading-head"><p class="rd-byline">' + escape(book.title) + ' <span>/</span> ' + label + '</p><h1>' + escape(ep.title) + '</h1><p>' + escape(book.author) + ' · 개정 ' + escape(version(book, index)) + ' · ' + (music ? (ep.free ? '무료 듣기' : '구독 트랙') : (ep.free ? '무료 미리보기' : '구독 회차')) + '</p></header>';
     if (permission === 'closed') return page(context + title + empty('공개가 종료된 작품입니다.', '#home', '다른 작품 찾기'), 'rd-reading');
     if (permission === 'locked') {
       const active = activeSubscription();
-      const message = active ? '현재 이용권의 구독 범위에 이 작품이 포함되지 않습니다.' : '이 작품을 포함하는 이용권을 선택하면 ' + (index + 1) + '화를 펼칠 수 있습니다.';
-      return page(context + title + '<div class="rd-gate"><h2>구독으로 열리는 회차</h2><p>' + message + '</p>' +
+      const message = active ? '현재 이용권의 구독 범위에 이 작품이 포함되지 않습니다.' : '이 작품을 포함하는 이용권을 선택하면 ' + label + (music ? '를 들을 수 있습니다.' : '를 펼칠 수 있습니다.');
+      return page(context + title + '<div class="rd-gate"><h2>' + (music ? '구독으로 듣는 트랙' : '구독으로 열리는 회차') + '</h2><p>' + message + '</p>' +
         (active ? action('#account', '내 이용권 확인') : action('#subscribe/' + path, '구독권 보기')) + '</div>', 'rd-reading');
+    }
+    if (music) {
+      const follow = followButton(book);
+      const save = '<button type="button" class="rd-toggle" data-reader-action="save" data-book="' + escape(book.id) +
+        '" aria-pressed="' + saved + '">' + (saved ? '저장됨' : '서재에 저장') + '</button>';
+      const player = '<section class="rd-listener" aria-label="트랙 재생">' + cover(book) + '<div>' + title +
+        (changed ? '<p class="rd-notice">새 버전을 처음부터 재생합니다.</p>' : '') +
+        '<audio controls preload="metadata" data-listening src="' + escape(ep.audio) + '" aria-label="' +
+        escape(ep.title) + ' 듣기"></audio><div class="rd-actions">' + follow + save + '</div></div></section>';
+      return page(context + player + episodes(book, p) + link(linkToReport(book,index), '작품 신고'), 'rd-reading');
     }
     return page(context + '<div class="rd-read-layout"><article class="rd-article">' + title +
       (changed ? '<p class="rd-notice" role="status">새 개정판이 공개되어 이 회차의 처음부터 엽니다.</p>' : '') +
@@ -144,7 +178,7 @@
   function feedbackList(comments) {
     return '<ul class="rd-feedback-list">' + comments.map(f => {
       const book = bookById(f.bookId);
-      return '<li><a href="' + linkToRead(book, f.episode) + '">' + escape(book.title) + ' · ' + (f.episode + 1) + '화</a><p>' + escape(f.text) + '</p><div><span>' +
+      return '<li><a href="' + linkToRead(book, f.episode) + '">' + escape(book.title) + ' · ' + episodeNumber(book,f.episode) + '</a><p>' + escape(f.text) + '</p><div><span>' +
         escape(f.author) + ' · 독자</span>' + link(linkToReport(book, f.episode, f.id), '신고') + '</div></li>';
     }).join('') + '</ul>';
   }
@@ -175,7 +209,7 @@
     }
     const comments = state.feedback.filter(f => matches(bookById(f.bookId), f.episode));
     const options = books.flatMap(book => book.episodes.flatMap((ep, i) => matches(book, i) ?
-      ['<option value="' + escape(encoded(book.id) + '/' + (i + 1)) + '">' + escape(book.title) + ' · ' + (i + 1) + '화 ' + escape(ep.title) + '</option>'] : [])).join('');
+      ['<option value="' + escape(encoded(book.id) + '/' + (i + 1)) + '">' + escape(book.title) + ' · ' + episodeNumber(book, i) + ' ' + escape(ep.title) + '</option>'] : [])).join('');
     if (!all && !options) return page(header('커뮤니티') + tabs + empty('팔로우한 작가의 공개 글이 없습니다.', '#community/all' + suffix, '전체 글 보기'), 'rd-community');
     const notices = notes.length ? authorNote(notes[0]) + (notes.length > 1 ? more('지난 작가 소식 ' + (notes.length - 1) + '건', notes.slice(1).map(authorNote).join('')) : '') :
       '<h2>' + escape(explicit?.book.title || '작가 소식') + '</h2><p class="rd-empty">등록된 작가 소식이 없습니다.</p>';
@@ -191,62 +225,137 @@
     return !!subscribed && (!subscription?.endsAt || subscription.endsAt > Date.now());
   }
 
+  function nextMonthlyDate(start) {
+    const end = new Date(start);
+    end.setDate(1);
+    end.setMonth(end.getMonth() + 1);
+    const lastDay = new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
+    end.setDate(Math.min(start.getDate(), lastDay));
+    return end.getTime();
+  }
+
   function readInsteadOfSubscribe(parts) {
     const target = routeBook(parts);
     return target && access(target.book, target.index) !== 'locked' ? linkToRead(target.book, target.index) : null;
   }
 
-  function planRow(id, plan, target, selectedId) {
-    const excluded = target && !planIncludes(id, target.book);
-    const status = target ? '<span class="rd-plan-scope">' + (excluded ? '이 회차 제외' : '이 회차 포함') + '</span>' : '';
+  function scopeNames(plan) {
+    if (plan === 'topic') return Object.keys(genrePrices);
+    if (plan !== 'artist') return [];
+    return [...new Set(app().books.filter(book => book.episodes.some((_, i) => access(book, i) !== 'closed')).map(book => book.author))];
+  }
+
+  function availableScope(plan, scope) {
+    return priceFor(plan, scope) !== null && app().books.some(book =>
+      planIncludes(plan, book, scope) && book.episodes.some((ep, i) => !ep.free && access(book, i) !== 'closed'));
+  }
+
+  function scopeOptions(plan, query = '') {
+    const matches = scopeNames(plan).filter(name => name.includes(query.trim()));
+    const unit = plan === 'artist' ? '아티스트' : '장르';
+    return '<option value="">' + (matches.length ? unit + ' 선택' : '검색 결과 없음') + '</option>' +
+      matches.map(name => {
+        const price = priceFor(plan, name);
+        const available = availableScope(plan, name);
+        const detail = price === null ? '가격 미등록' : !available ? '구독 대상 작품 없음' : '월 ' + won(price);
+        return '<option value="' + escape(name) + '"' + (available ? '' : ' disabled') + '>' + escape(name + ' · ' + detail) + '</option>';
+      }).join('');
+  }
+
+  function scopePicker(plan) {
+    if (plan === 'all') return '';
+    const unit = plan === 'artist' ? '아티스트' : '장르';
+    return '<div class="rd-scope-picker"><label>' + unit + ' 검색<input type="search" name="lookup" autocomplete="off" placeholder="' +
+      (plan === 'artist' ? '이름 검색' : '음악 또는 웹소설 검색') + '"></label><label>' + unit +
+      ' 선택<select name="scope" required>' + scopeOptions(plan) + '</select></label></div>';
+  }
+
+  function planRow(id, target, selectedId) {
+    const plan = plans[id];
+    const price = id === 'all' ? '월 ' + won(plan.price) : id === 'topic' ? '음악 4,990원 · 웹소설 6,990원' : '아티스트별 요금';
+    const excluded = target && id === 'all' && !planIncludes(id, target.book);
+    const scope = target && id !== 'all' ? (id === 'artist' ? target.book.author : categoryOf(target.book)) : '';
+    const targetLabel = !target ? '' : excluded || (scope && !availableScope(id, scope)) ? '이 작품 제외' :
+      id === 'all' ? '이 작품 포함' : scope + ' 선택 시 포함';
     return '<label class="rd-plan"><input type="radio" name="plan" value="' + id + '"' +
-      (id === selectedId ? ' checked' : '') + (excluded ? ' disabled' : '') + '>' +
-      '<span class="rd-choice-mark" aria-hidden="true">' + app().icon('bookmark', 16) + '</span>' +
-      '<span class="rd-plan-copy"><strong>' + escape(plan.label) + '</strong><small>' + escape(plan.note) + '</small></span>' +
-      '<span class="rd-plan-terms"><b>월 ' + won(priceFor(id)) + '</b>' + status + '</span></label>';
+      (id === selectedId ? ' checked' : '') + '><span class="rd-choice-mark" aria-hidden="true">' + app().icon('bookmark', 16) +
+      '</span><span class="rd-plan-copy"><strong>' + escape(plan.label) + '</strong><small>' + escape(plan.note) +
+      '</small></span><span class="rd-plan-terms"><b>' + price + '</b>' +
+      (targetLabel ? '<span class="rd-plan-scope">' + escape(targetLabel) + '</span>' : '') + '</span></label>';
+  }
+
+  function exclusionsText() {
+    const excluded = app().books.filter(book => book.allPassExcluded &&
+      book.episodes.some((ep, i) => !ep.free && access(book, i) !== 'closed'));
+    return excluded.length ? '올패스 제외 작품 · ' + excluded.map(book => book.title).join(', ') : '현재 올패스 제외 작품 없음';
+  }
+
+  function offerReview(plan, scope, target) {
+    const price = priceFor(plan, scope);
+    const eligible = availableScope(plan, scope) && (!target || planIncludes(plan, target.book, scope));
+    const named = scope ? escape(scope) : '선택한 ' + (plan === 'artist' ? '아티스트' : '장르');
+    let notice;
+    if (plan === 'artist') {
+      notice = (scope && price !== null ? named + ' 아티스트가 직접 책정한 월 ' + won(price) + '입니다. ' : '아티스트를 선택하면 직접 책정한 월 요금을 확인할 수 있습니다. ') +
+        '이용 기간에는 이 아티스트가 편성한 구독 작품만 감상할 수 있습니다. 개인 계좌로 송금하면 이용권이 발급되지 않습니다.';
+    } else if (plan === 'topic') {
+      const use = scope === '음악' ? '음악을 스트리밍할 수 있습니다.' : scope === '웹소설' ? '웹소설을 열람할 수 있습니다.' : '작품을 감상할 수 있습니다.';
+      notice = '선택한 한 장르의 구독 대상 ' + use + ' 다른 장르와 작품의 소장·재배포 권한은 포함하지 않습니다.';
+    } else {
+      notice = '음악과 웹소설의 구독 편성작을 스트리밍하거나 열람할 수 있습니다. 소장·재배포 권한은 포함하지 않습니다. ' + escape(exclusionsText());
+    }
+    const amount = price === null ? '대상 선택 후 표시' : (scope ? named + ' · ' : '') + '월 ' + won(price);
+    const mismatch = target && (scope || plan === 'all') && !planIncludes(plan, target.book, scope);
+    return '<div class="rd-review-line"><h2>' + plans[plan].label + ' 이용 조건</h2><output>' + amount + '</output></div><p>' + notice + '</p>' +
+      (mismatch ? '<p class="rd-notice">선택한 이용권에 이 작품이 포함되지 않습니다. 다른 대상이나 이용권을 선택해 주세요.</p>' : '') +
+      '<input type="hidden" name="quotedPrice" value="' + (eligible ? price : '') + '">';
   }
 
   function subscribe(parts) {
     const target = routeBook(parts);
-    if (parts[1] && !target) return page(header('회차를 찾을 수 없습니다') + empty('작품과 회차 주소를 확인해 주세요.'));
+    if (parts[1] && !target) return page(header('작품을 찾을 수 없습니다') + empty('작품과 회차 주소를 확인해 주세요.'));
     const back = target ? linkToRead(target.book, target.index) : '#library';
     if (activeSubscription()) {
       return page(header('구독권 선택') + '<p class="rd-notice">이용 중인 구독권이 있습니다.</p>' +
-        action('#account', '내 이용권 확인') + link(back, target ? '회차로 돌아가기' : '내 서재'), 'rd-service');
+        action('#account', '내 이용권 확인') + link(back, target ? '작품으로 돌아가기' : '내 서재'), 'rd-service');
     }
-    const available = Object.keys(plans).find(id => !target || planIncludes(id, target.book));
-    const exclusions = app().books.filter(book => book.allPassExcluded &&
-      book.episodes.some((ep, i) => !ep.free && access(book, i) !== 'closed'));
-    const excludedText = exclusions.length ? '올패스 제외 작품 · ' + exclusions.map(b => b.title).join(', ') : '올패스 제외 작품 없음';
+    const initial = target ? 'topic' : 'artist';
     const context = target ? '<aside class="rd-origin" aria-label="선택한 작품">' + cover(target.book) +
       '<div><p class="rd-byline">' + escape(target.book.author) + ' · ' + escape(target.book.genre) +
-      '</p><h2>' + escape(target.book.title) + '</h2><p>' + (target.index + 1) + '화 · ' +
+      '</p><h2>' + escape(target.book.title) + '</h2><p>' + episodeNumber(target.book, target.index) + ' · ' +
       escape(target.book.episodes[target.index].title) + '</p></div></aside>' : '';
     const reportLink = target ? link(linkToReport(target.book, target.index), '개인 송금 유도 신고') :
       more('개인 송금 유도 신고', '<ul class="rd-report-works">' + app().books.flatMap(book => {
         const i = book.episodes.findIndex((ep, index) => access(book, index) !== 'closed');
         return i < 0 ? [] : ['<li>' + link(linkToReport(book, i), book.title + ' 신고') + '</li>'];
       }).join('') + '</ul>');
+    const terms = '<details class="rd-more rd-withdrawal"><summary>청약철회·환불과 정기결제 기준</summary><p>유료 계약은 원칙적으로 계약 내용을 서면으로 받은 날부터 7일 안에 청약을 철회할 수 있습니다. 공급이 더 늦으면 공급이 시작된 날부터 계산합니다. ' +
+      '법정 고지와 시험 이용 등 필요한 조치를 거쳐 제공을 시작한 디지털콘텐츠는 철회가 제한될 수 있습니다. 나누어 제공할 수 있는 콘텐츠 중 아직 제공하지 않은 부분은 철회할 수 있습니다. ' +
+      '표시·광고 또는 계약과 다르게 제공된 경우에는 공급일부터 3개월, 그 사실을 알았거나 알 수 있었던 날부터 30일 이내에 철회를 신청할 수 있습니다.</p>' +
+      '<p>실제 정기결제 금액을 올리거나 무료 이용을 유료 정기결제로 전환할 때는 변경 전 30일 이내에 변경일·전후 요금·결제방법에 대한 동의를 받고 취소·해지 방법과 효과를 안내해야 합니다. ' +
+      '<a class="rd-link" href="https://www.law.go.kr/법령/전자상거래법/제17조">청약철회 근거</a> · <a class="rd-link" href="https://www.law.go.kr/법령/전자상거래법/제13조">정기결제 근거</a></p></details>';
     const form = '<form id="rd-subscribe" class="rd-purchase" data-reader-form="subscribe">' +
-      '<fieldset><legend>이용권 비교</legend><p class="rd-plan-caption">월 예시 요금</p><div class="rd-plan-grid">' +
-      Object.entries(plans).map(([id, plan]) => planRow(id, plan, target, available)).join('') +
-      '</div></fieldset><p class="rd-exclusions">' + escape(excludedText) + '</p>' +
-      '<div class="rd-pay-summary"><div class="rd-review-line"><h2>이용 조건</h2>' +
-      (available ? '<output class="rd-selected-price">' + escape(plans[available].label) + ' · 월 ' + won(priceFor(available)) + '</output>' : '') +
-      '</div><p>한 달 동안 이용하며, 내 서재에서 갱신 해지와 환불을 신청할 수 있습니다.</p>' +
-      '<div class="rd-transfer"><span>개인 계좌로 송금하지 마세요.</span>' + reportLink + '</div>' +
-      (available ? '<label class="rd-consent"><input name="agree" type="checkbox" required> 실제 청구가 없는 모의 구독임을 확인했습니다.</label>' +
-        '<button class="rd-button" type="submit" disabled>모의 구독 시작</button>' : '<p>이 회차를 포함하는 이용권이 없습니다.</p>') + '</div></form>';
+      '<fieldset><legend>이용권 비교</legend><p class="rd-plan-caption">월 이용료</p><div class="rd-plan-grid">' +
+      Object.keys(plans).map(id => planRow(id, target, initial)).join('') + '</div></fieldset>' +
+      '<div class="rd-scope-slot">' + scopePicker(initial) + '</div><div class="rd-pay-summary">' +
+      '<div class="rd-offer-review" aria-live="polite">' + offerReview(initial, '', target) + '</div>' +
+      '<p>오늘 시작하면 ' + date(nextMonthlyDate(new Date())) + '에 한 달 이용 기간이 끝납니다. 실제 청구나 자동 결제는 없습니다. 내 서재의 구독 관리에서 다음 갱신을 해지하거나 환불을 신청할 수 있습니다.</p>' +
+      terms + '<div class="rd-transfer">' + reportLink + '</div>' +
+      '<label class="rd-consent"><input name="agree" type="checkbox" required disabled> 선택한 이용권의 금액과 이용 조건을 확인했습니다.</label>' +
+      '<button class="rd-button" type="submit" disabled>모의 구독 시작</button></div></form>';
     return page(header('구독권 선택', link('#account', '구독 관리 →')) +
       '<div class="rd-subscribe-layout' + (target ? '' : ' is-general') + '">' + context + form + '</div>' +
-      link(back, target ? '← 회차로 돌아가기' : '← 내 서재', 'rd-subscribe-back'), 'rd-subscribe');
+      link(back, target ? '← 작품으로 돌아가기' : '← 내 서재', 'rd-subscribe-back'), 'rd-subscribe');
   }
 
   function account() {
     const sub = app().state.subscription;
     const active = activeSubscription();
+    if (!sub && active) {
+      return page(header('구독 관리', link('#library', '내 서재 →')) + '<section class="rd-account-card"><span class="rd-byline">내 이용권</span><h2>이전 웹소설 이용권</h2><p>웹소설 구독 작품을 이용 중입니다. 이 기기에는 이전 이용권의 금액과 종료일 기록이 없습니다.</p><button type="button" class="rd-toggle" data-reader-action="end-legacy">이전 모의 이용권 종료하고 새 이용권 선택</button></section>', 'rd-service');
+    }
     const details = sub ? '<section class="rd-account-card"><span class="rd-byline">내 이용권</span><h2>' +
-      escape(plans[sub.plan]?.label || '웹소설 주제별') + '</h2><dl class="rd-facts"><div><dt>상태</dt><dd>' +
+      escape(offerLabel(sub)) + '</h2><dl class="rd-facts"><div><dt>상태</dt><dd>' +
       (active ? (sub.renewing ? '구독 중' : '갱신 해지됨') : '이용 종료') +
       '</dd></div><div><dt>모의 결제액</dt><dd>' + won(sub.price) + '</dd></div><div><dt>이용기간</dt><dd>' + escape(date(sub.startedAt)) + ' – ' + escape(date(sub.endsAt)) +
       '</dd></div><div><dt>환불 신청</dt><dd>' + escape(sub.refundStatus || '신청 내역 없음') + '</dd></div></dl>' +
@@ -268,7 +377,7 @@
     const cases = recent.length ? '<section class="rd-case-list"><h2>내 신고 내역</h2><ul>' + recent.map(r =>
       '<li><strong>' + escape(r.reason) + '</strong><span>' + escape(r.status) + '</span><small>사건 ' + escape(r.id) + '</small></li>').join('') + '</ul></section>' : '';
     return page(header(type + ' 신고', link(linkToFeed(book, index), '커뮤니티 →')) + '<div class="rd-service-grid"><section class="rd-report-context"><span class="rd-byline">신고 대상</span><h2>' + escape(book.title) + '</h2><p>' +
-      (index + 1) + '화 · ' + escape(book.episodes[index].title) + '</p>' + (feedback ? '<blockquote>' + escape(feedback.text) + '<cite>' + escape(feedback.author) + ' · 독자</cite></blockquote>' : '') + cases + '</section>' +
+      episodeNumber(book, index) + ' · ' + escape(book.episodes[index].title) + '</p>' + (feedback ? '<blockquote>' + escape(feedback.text) + '<cite>' + escape(feedback.author) + ' · 독자</cite></blockquote>' : '') + cases + '</section>' +
       '<form class="rd-report-form" data-reader-form="report"><label>신고 사유<select name="reason" required><option value="">사유 선택</option>' +
       (id ? ['부적절한 피드백','개인정보 노출','광고·도배','기타'] : ['권리 침해','개인 계좌로 송금 유도','부적절한 내용','기타']).map(x => '<option>' + x + '</option>').join('') +
       '</select></label><label>추가 설명 <small>(선택)</small><textarea rows="4" name="detail" maxlength="500" placeholder="확인이 필요한 내용을 적어 주세요."></textarea></label><p>이 브라우저의 모의 운영 콘솔에 접수됩니다.</p><button class="rd-button" type="submit">신고 접수</button></form></div>', 'rd-service');
@@ -279,8 +388,59 @@
     return (screens[parts[0]] || library)(parts);
   }
 
+  function trackListening(audio, {book, index}, resume) {
+    const state = app().state;
+    const currentVersion = version(book, index);
+    const previous = progressFor(book, index);
+    let played = false;
+    let lastSaved = -1;
+    function restore() {
+      if (resume && previous?.version === currentVersion && previous.seconds < audio.duration) {
+        audio.currentTime = previous.seconds || 0;
+      }
+    }
+    function persist() {
+      const seconds = audio.currentTime;
+      if (!played || !Number.isFinite(seconds) || seconds === lastSaved) return;
+      const mark = {episode:index, seconds, version:currentVersion, updated:Date.now()};
+      const chapters = (state.chapterProgress ||= {})[book.id] ||= {};
+      state.progress[book.id] = chapters[index] = mark;
+      lastSaved = seconds;
+      app().save();
+    }
+    function checkpoint() {
+      const permission = access(book,index);
+      if (permission === 'locked' || permission === 'closed') {
+        app().render();
+        return;
+      }
+      if (Math.abs(audio.currentTime - lastSaved) >= 3) persist();
+    }
+    function start() { played = true; checkpoint(); }
+    if (audio.readyState >= 1) restore();
+    else audio.addEventListener('loadedmetadata', restore, {once:true});
+    audio.addEventListener('play', start);
+    audio.addEventListener('timeupdate', checkpoint);
+    audio.addEventListener('pause', persist);
+    window.addEventListener('pagehide', persist);
+    leaveReading = () => {
+      audio.removeEventListener('loadedmetadata', restore);
+      audio.removeEventListener('play', start);
+      audio.removeEventListener('timeupdate', checkpoint);
+      audio.removeEventListener('pause', persist);
+      window.removeEventListener('pagehide', persist);
+      persist();
+      audio.pause();
+    };
+  }
+
   function trackReading(parts) {
     const target = routeBook(parts);
+    if (target?.book.category === '음악') {
+      const audio = root().querySelector('audio[data-listening]');
+      if (audio) trackListening(audio, target, parts[3] === 'continue');
+      return;
+    }
     const paragraphs = [...root().querySelectorAll('[data-paragraph]')];
     if (!target || !paragraphs.length) return;
     const {book,index} = target;
@@ -365,14 +525,19 @@
       const plan = String(data.get('plan'));
       const target = routeBook(parts);
       if (!Object.hasOwn(plans, plan) || (parts[1] && !target)) return;
-      if (target && (access(target.book, target.index) !== 'locked' || !planIncludes(plan, target.book))) return;
+      const scope = plan === 'all' ? '' : String(data.get('scope') || '');
+      if (!availableScope(plan, scope) || (target && (access(target.book, target.index) !== 'locked' || !planIncludes(plan, target.book, scope)))) return;
+      const price = priceFor(plan, scope);
+      if (data.get('quotedPrice') !== String(price)) {
+        refreshOffer(form, target);
+        app().notify('요금이 변경되었습니다. 새 금액을 확인해 주세요.');
+        return;
+      }
       const now = new Date();
-      const end = new Date(now);
-      end.setDate(1); end.setMonth(end.getMonth() + 1);
-      const lastDay = new Date(end.getFullYear(),end.getMonth()+1,0).getDate();
-      end.setDate(Math.min(now.getDate(),lastDay));
       state.subscribed=true;
-      state.subscription={plan,artist:firstBook().author,price:priceFor(plan),startedAt:now.getTime(),endsAt:end.getTime(),renewing:true,refundStatus:''};
+      state.subscription={plan,price,startedAt:now.getTime(),endsAt:nextMonthlyDate(now),renewing:true,refundStatus:''};
+      if (plan === 'artist') state.subscription.artist = scope;
+      if (plan === 'topic') state.subscription.category = scope;
       app().save(); app().notify('모의 구독이 시작되었습니다.');
       app().go(target ? linkToRead(target.book,target.index).slice(1) : 'account');
     }
@@ -392,29 +557,47 @@
       else {
         const selected=store.includes(key);
         button.setAttribute('aria-pressed',String(selected));
-        button.textContent=act==='follow' ? (selected ? '팔로잉':'작가 팔로우') : (selected?'저장됨':'서재에 저장');
+        button.textContent=act==='follow' ? (selected ? '팔로잉':book.category === '음악' ? '아티스트 팔로우' : '작가 팔로우') : (selected?'저장됨':'서재에 저장');
       }
-      app().notify(act==='follow' ? (store.includes(key)?'작가를 팔로우합니다.':'팔로우를 해제했습니다.') : (store.includes(key)?'내 서재에 저장했습니다.':'서재에서 저장을 해제했습니다.'));
-    } else if (act === 'cancel' && activeSubscription() && state.subscription.renewing) {
+      app().notify(act==='follow' ? (store.includes(key)?book.author+' 님을 팔로우합니다.':'팔로우를 해제했습니다.') : (store.includes(key)?'내 서재에 저장했습니다.':'서재에서 저장을 해제했습니다.'));
+    } else if (act === 'end-legacy' && state.subscribed && !state.subscription) {
+      state.subscribed = false;
+      app().save(); app().go('subscribe');
+    } else if (act === 'cancel' && activeSubscription() && state.subscription?.renewing) {
       state.subscription.renewing=false;
       app().save(); app().render(); app().notify('다음 갱신을 해지했습니다.');
-    } else if (act === 'refund' && activeSubscription() && !state.subscription.refundStatus) {
+    } else if (act === 'refund' && activeSubscription() && state.subscription && !state.subscription.refundStatus) {
       state.subscription.refundStatus='접수 중';
       app().save(); app().render(); app().notify('모의 환불을 신청했습니다.');
     }
   }
+  function refreshOffer(form, target) {
+    const plan = form.elements.plan.value;
+    const scope = form.elements.scope?.value || '';
+    form.querySelector('.rd-offer-review').innerHTML = offerReview(plan, scope, target);
+    form.elements.agree.checked = false;
+    form.elements.agree.disabled = !form.elements.quotedPrice.value;
+    form.querySelector('[type="submit"]').disabled = true;
+  }
+
   function bind(parts) {
     for (const button of root().querySelectorAll('[data-reader-action]')) button.addEventListener('click', () => toggle(button));
     for (const form of root().querySelectorAll('[data-reader-form]')) {
       form.addEventListener('submit', event => submit(event,parts));
-      if (form.dataset.readerForm==='subscribe') form.addEventListener('change', event => {
-        if (event.target.name === 'plan') {
-          const plan = event.target.value;
-          form.querySelector('.rd-selected-price').textContent = plans[plan].label + ' · 월 ' + won(priceFor(plan));
-          form.elements.agree.checked = false;
-        }
-        form.querySelector('[type="submit"]').disabled = !form.elements.agree.checked;
-      });
+      if (form.dataset.readerForm==='subscribe') {
+        const target = routeBook(parts);
+        form.addEventListener('input', event => {
+          if (event.target.name !== 'lookup') return;
+          form.elements.scope.innerHTML = scopeOptions(form.elements.plan.value, event.target.value);
+          refreshOffer(form, target);
+        });
+        form.addEventListener('change', event => {
+          const field = event.target.name;
+          if (field === 'plan') form.querySelector('.rd-scope-slot').innerHTML = scopePicker(event.target.value);
+          if (field === 'plan' || field === 'scope') refreshOffer(form, target);
+          if (field === 'agree') form.querySelector('[type="submit"]').disabled = !form.elements.agree.checked || form.elements.agree.disabled;
+        });
+      }
       if (form.dataset.readerForm==='feedback') form.elements.message.addEventListener('input', e => e.target.setCustomValidity(''));
     }
     if (parts[0]==='read') trackReading(parts);

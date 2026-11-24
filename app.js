@@ -7,6 +7,7 @@
     home:'<path d="m3 10 9-7 9 7v10h-6v-7H9v7H3z"/>',
     books:'<path d="M3 3h4v17H3zm6 0h4v17H9zm6 2 3.5-1 3.3 15.3-3.5.8z"/>',
     book:'<path d="M3 4c3.4-.6 6.4.3 9 2.5 2.6-2.2 5.6-3.1 9-2.5v14c-3.4-.6-6.4.2-9 2.5C9.4 18.2 6.4 17.4 3 18zM12 6.5v14"/>',
+    play:'<path d="m7 4 13 8-13 8z"/>',
     bookmark:'<path d="M6 3h12v18l-6-4-6 4z"/>',
     search:'<circle cx="10.5" cy="10.5" r="6.8"/><path d="m16 16 5 5"/>',
     community:'<path d="M3 4h18v13H10l-6 4v-4H3zm4 5h10m-10 4h6"/>',
@@ -102,26 +103,36 @@
   }
   function galleryCard(book) {
     const marked=state.saved.includes(book.id);
+    const firstAction=book.category === '음악' ? ' 첫 트랙 듣기' : ' 첫 화 읽기';
     const wideSource=book.wideCover ? '<source media="(min-width:701px)" srcset="'+escape(book.wideCover)+'">' : '';
-    return '<article class="shelf-card"><a href="#read/'+book.id+'/1" class="jacket '+book.id+'" aria-label="'+escape(book.title)+' 첫 화 읽기"><picture>'+wideSource+'<img alt="" src="'+book.cover+'" loading="lazy"></picture></a>'+
+    return '<article class="shelf-card"><a href="#read/'+book.id+'/1" class="jacket '+book.id+'" aria-label="'+escape(book.title)+firstAction+'"><picture>'+wideSource+'<img alt="" src="'+book.cover+'" loading="lazy"></picture></a>'+
       '<button class="shelf-save'+(marked?' selected':'')+'" type="button" data-save="'+book.id+'" aria-pressed="'+marked+'" aria-label="'+escape(book.title)+' 서재에 저장">'+icon('bookmark',17)+'</button>'+
-      '<div class="shelf-copy"><div><h3><a href="#read/'+book.id+'/1">'+escape(book.title)+'</a></h3><p>'+escape(book.author)+'<span>·</span>'+escape(book.genre)+'</p></div><a href="#read/'+book.id+'/1" class="open-book" aria-label="'+escape(book.title)+' 펼치기">'+icon('arrow',20)+'</a></div></article>';
+      '<div class="shelf-copy"><div><h3><a href="#read/'+book.id+'/1">'+escape(book.title)+'</a></h3><p>'+escape(book.author)+'<span>·</span>'+escape(book.genre)+'</p></div><a href="#read/'+book.id+'/1" class="open-book" aria-label="'+escape(book.title)+firstAction+'">'+icon('arrow',20)+'</a></div></article>';
   }
-  function home() {
-    const available=books.filter(visible);
+  function home(music) {
+    const category = music ? '음악' : '웹소설';
+    const available=books.filter(b=>visible(b) && (b.category || '웹소설') === category);
+    const navigation = '<div class="discovery-bar"><nav class="genre-tabs" aria-label="작품 장르">' +
+      '<a href="#home"' + (!music ? ' aria-current="page"' : '') + '>웹소설</a>' +
+      '<a href="#home/music"' + (music ? ' aria-current="page"' : '') + '>음악</a></nav>' +
+      '<a class="pass-link" href="#subscribe">프리패스 보기 ' + icon('arrow',16) + '</a></div>';
     const feature=available[0];
-    if (!feature) return '<div class="catalog-home"><h1>편집자의 서가</h1><p>현재 공개 중인 작품이 없습니다.</p></div>';
+    if (!feature) return '<div class="catalog-home">'+navigation+'<h1>'+category+'</h1><p>현재 공개 중인 작품이 없습니다.</p></div>';
     const followed=state.following.includes(feature.author);
     const first=feature.episodes[0];
-    return '<div class="catalog-home"><section class="feature" aria-labelledby="featured-title"><div class="feature-copy">'+
-      '<div class="feature-kicker"><i aria-hidden="true"></i>편집자의 서가</div>'+
-      '<p class="edition"><span>'+escape(feature.genre)+'</span><span>연재 중</span></p>'+
-      '<h1 id="featured-title">'+escape(feature.title)+'</h1><p class="feature-author">'+escape(feature.author)+' 지음</p>'+
+    const remaining=available.slice(1);
+    const trackList=music ? '<section class="shelf" aria-labelledby="tracks-title"><div class="shelf-heading"><h2 id="tracks-title">수록곡</h2><span>'+feature.episodes.length+'곡</span></div><ol class="track-list">'+
+      feature.episodes.map((ep,i)=>'<li><a href="#read/'+feature.id+'/'+(i+1)+'"><span class="track-number">'+String(i+1).padStart(2,'0')+'</span><strong>'+escape(ep.title)+'</strong><small>'+ (ep.free ? '무료 듣기' : '구독 트랙') +'</small>'+icon(ep.free?'play':'arrow',16)+'</a></li>').join('')+'</ol></section>' : '';
+    const shelf=remaining.length ? '<section class="shelf" aria-labelledby="shelf-title"><div class="shelf-heading"><h2 id="shelf-title">'+(music?'다음에 들을 음반':'다음에 펼칠 작품')+'</h2><span>작품 '+remaining.length+'편</span></div><div class="shelf-grid">'+remaining.map(galleryCard).join('')+'</div></section>' : '';
+    return '<div class="catalog-home">'+navigation+'<section class="feature" aria-labelledby="featured-title"><div class="feature-copy">'+
+      '<div class="feature-kicker"><i aria-hidden="true"></i>'+(music?'이번 주 음반':'편집자의 서가')+'</div>'+
+      '<p class="edition"><span>'+escape(feature.genre)+'</span><span>'+(music?'싱글':'연재 중')+'</span></p>'+
+      '<h1 id="featured-title">'+escape(feature.title)+'</h1><p class="feature-author">'+escape(feature.author)+(music?'':' 지음')+'</p>'+
       '<p class="feature-blurb">'+escape(feature.blurb)+'</p><div class="feature-actions">'+
-      '<a class="feature-read" href="#read/'+feature.id+'/1">'+icon('book',19)+'첫 화 읽기'+icon('arrow',18)+'</a>'+
-      '<button type="button" class="feature-follow" data-follow="'+escape(feature.author)+'" aria-pressed="'+followed+'">'+icon(followed?'check':'plus',16)+(followed?'팔로잉':'작가 팔로우')+'</button></div></div>'+
-      '<a class="feature-art '+feature.id+'" href="#read/'+feature.id+'/1" aria-label="'+escape(feature.title)+' 첫 화 '+escape(first.title)+'"><img src="'+feature.cover+'" '+(feature.id==='moon'?'srcset="./assets/moon-small.webp 680w, ./assets/moon.webp 1254w" sizes="(max-width:700px) calc(100vw - 40px), (min-width:1456px) 690px, 48vw" ':'')+'alt="'+(feature.id==='moon'?'보름달 아래 붉은 우편함과 불이 켜진 우체국':escape(feature.title)+' 표지')+'" fetchpriority="high"></a></section>'+
-      '<section class="shelf" aria-labelledby="shelf-title"><div class="shelf-heading"><h2 id="shelf-title">다음에 펼칠 작품</h2><span>작품 '+(available.length-1)+'편</span></div><div class="shelf-grid">'+available.slice(1).map(galleryCard).join('')+'</div></section></div>';
+      '<a class="feature-read" href="#read/'+feature.id+'/1">'+icon(music?'play':'book',19)+(music?'첫 트랙 듣기':'첫 화 읽기')+icon('arrow',18)+'</a>'+
+      '<button type="button" class="feature-follow" data-follow="'+escape(feature.author)+'" aria-pressed="'+followed+'">'+icon(followed?'check':'plus',16)+(followed?'팔로잉':music?'아티스트 팔로우':'작가 팔로우')+'</button></div></div>'+
+      '<a class="feature-art '+feature.id+'" href="#read/'+feature.id+'/1" aria-label="'+escape(feature.title)+(music?' 첫 트랙 ':' 첫 화 ')+escape(first.title)+'"><img src="'+feature.cover+'" '+(feature.id==='moon'?'srcset="./assets/moon-small.webp 680w, ./assets/moon.webp 1254w" sizes="(max-width:700px) calc(100vw - 40px), (min-width:1456px) 690px, 48vw" ':'')+'alt="'+(feature.id==='moon'?'보름달 아래 붉은 우편함과 불이 켜진 우체국':escape(feature.title)+' 표지')+'" fetchpriority="high"></a></section>'+
+      trackList+shelf+'</div>';
   }
   const names={home:'홈',library:'내 서재',community:'커뮤니티',read:'작품 읽기',subscribe:'구독권 선택',account:'구독 관리',report:'신고',studio:'창작자 작업실',ops:'운영 콘솔'};
   function render() {
@@ -142,7 +153,8 @@
     document.body.dataset.theme=isHome?'dark':'light';
     document.body.dataset.page=route;
     document.querySelector('meta[name="theme-color"]').content=isHome?'#101b16':'#faf9f4';
-    document.title=(names[route] || '페이지 찾기')+' · Subart';
+    const isAudio=route==='read' && books.find(b=>b.id===parts[1])?.category==='음악';
+    document.title=(isAudio?'트랙 듣기':names[route] || '페이지 찾기')+' · Subart';
     spaces.open=false;
     if(dialog.open) dialog.close();
     const activeTab=({subscribe:'library',account:'library',report:'community'})[route]||route;
@@ -151,7 +163,7 @@
       else a.removeAttribute('aria-current');
     });
     let html;
-    if(isHome) html=home();
+    if(isHome) html=home(parts[1]==='music');
     else if(workspace) html=window.SubartWorkspace.render(parts);
     else if(known) html=window.SubartReader.render(parts);
     else html='<section class="missing"><h1>화면을 찾을 수 없어요</h1><a href="#home">홈으로 가기 →</a></section>';
@@ -167,8 +179,14 @@
   document.querySelectorAll('[data-icon]').forEach(n=>{n.innerHTML=icon(n.dataset.icon,n.classList.contains('caret')?14:19);});
   function showResults(query) {
     const term=query.trim().toLocaleLowerCase('ko-KR');
-    const hits=books.filter(b=>visible(b) && [b.title,b.author,b.genre].some(s=>s.toLocaleLowerCase('ko-KR').includes(term)));
-    document.getElementById('search-results').innerHTML=hits.length?hits.map(b=>'<a class="result" href="#read/'+b.id+'/1"><img src="'+b.cover+'" alt=""><span><strong>'+escape(b.title)+'</strong><small>'+escape(b.author)+' · '+escape(b.genre)+'</small></span>'+icon('arrow',17)+'</a>').join(''):'<p class="no-result">검색 결과가 없어요. 다른 작품명이나 작가 이름을 입력해 주세요.</p>';
+    const parts=readHash();
+    const scope=parts[0]==='home' ? (parts[1]==='music'?'음악':'웹소설') : '';
+    document.getElementById('search-title').textContent=scope ? scope+' 검색' : '작품 검색';
+    const hits=books.filter(b=>{
+      const category=b.category || '웹소설';
+      return visible(b) && (!scope || category===scope) && [b.title,b.author,b.genre,category].some(s=>s.toLocaleLowerCase('ko-KR').includes(term));
+    });
+    document.getElementById('search-results').innerHTML=hits.length?hits.map(b=>'<a class="result" href="#read/'+b.id+'/1"><img src="'+b.cover+'" alt=""><span><strong>'+escape(b.title)+'</strong><small>'+escape(b.author)+' · '+escape(b.genre)+'</small></span>'+icon('arrow',17)+'</a>').join(''):'<p class="no-result">검색 결과가 없어요. 작품명이나 창작자 이름으로 다시 찾아보세요.</p>';
   }
   const searchField=document.getElementById('search-input');
   document.getElementById('search-open').addEventListener('click',()=>{spaces.open=false;searchField.value='';showResults('');dialog.showModal();searchField.focus();});
@@ -179,19 +197,20 @@
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&spaces.open){spaces.open=false;spaces.querySelector('summary').focus();}});
   document.querySelector('.skip').addEventListener('click',e=>{e.preventDefault();main.focus();});
   main.addEventListener('click',e=>{
-    if(currentRoute!=='home') return;
+    if(readHash()[0]!=='home') return;
     const follow=e.target.closest('button[data-follow]');
     const mark=e.target.closest('button[data-save]');
     if(!follow&&!mark) return;
     const bucket=follow?'following':'saved', item=follow?follow.dataset.follow:mark.dataset.save;
     const was=state[bucket].includes(item);
     state[bucket]=was?state[bucket].filter(v=>v!==item):[...state[bucket],item];
-    const message=follow?(was?'작가 팔로우를 해제했어요.':'작가를 팔로우했어요.'):(was?'내 서재에서 뺐어요.':'내 서재에 저장했어요.');
+    const creator=readHash()[1]==='music'?'아티스트':'작가';
+    const message=follow?(was?creator+' 팔로우를 해제했어요.':creator+' 팔로우를 시작했어요.'):(was?'내 서재에서 뺐어요.':'내 서재에 저장했어요.');
     if(save()) notify(message);
     const button=follow||mark;
     button.setAttribute('aria-pressed',String(!was));
     if(mark) button.classList.toggle('selected',!was);
-    if(follow) button.innerHTML=icon(was?'plus':'check',16)+(was?'작가 팔로우':'팔로잉');
+    if(follow) button.innerHTML=icon(was?'plus':'check',16)+(was?creator+' 팔로우':'팔로잉');
   });
   window.addEventListener('hashchange',render);
   render();

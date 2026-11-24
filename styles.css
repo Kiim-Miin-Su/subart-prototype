@@ -54,6 +54,19 @@ main {min-height:70vh;}
 main:focus {outline:0;}
 .mobile-nav {display:none;}
 .catalog-home {width:min(var(--max),calc(100% - 2 * var(--edge)));margin:36px auto 0;padding-bottom:56px;}
+.discovery-bar {display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);margin-bottom:20px}
+.genre-tabs {display:flex;gap:24px}
+.genre-tabs a,.pass-link {display:inline-flex;align-items:center;gap:8px;min-height:var(--control-height);color:var(--muted);font-size:15px}
+.genre-tabs a {border-bottom:2px solid transparent}
+.genre-tabs a[aria-current=page] {border-color:var(--primary);color:var(--ink);font-weight:600}
+.pass-link:hover {color:var(--ink)}
+.track-list {list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.track-list li {border-bottom:1px solid var(--line)}
+.track-list a {display:grid;grid-template-columns:24px minmax(0,1fr) auto 16px;gap:16px;align-items:center;min-height:64px;padding:8px 12px}
+.track-list a:hover {background:var(--panel)}
+.track-list .track-number,.track-list small {color:var(--muted);font-variant-numeric:tabular-nums}
+.track-list strong {font-weight:500}
+.feature-art.yeoul img {object-position:center 55%}
 .feature {display:grid;grid-template-columns:minmax(0, .94fr) minmax(0,1.06fr);position:relative;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;isolation:isolate;}
 .feature-copy {min-width:0;display:flex;align-items:flex-start;flex-direction:column;padding:clamp(28px,3.15vw,52px) clamp(32px,4.1vw,64px);}
 .feature-kicker {display:flex;align-items:center;gap:12px;color:var(--ink);font-size:15px;font-weight:600;}
