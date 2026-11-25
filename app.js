@@ -129,24 +129,133 @@
         '</strong><small>' + (ep.free ? '무료' : '구독') + '</small></a></li>').join('') + '</ol></details></article>';
   }
 
-  function feature(book, episodes) {
-    const music = book.category === '음악';
-    const toon = book.category === '웹툰';
-    const followed = state.following.includes(book.author);
-    const first = episodes[0];
-    const url = readUrl(book, first);
-    const action = music ? '첫 트랙 듣기' : toon ? '첫 화 보기' : '첫 화 읽기';
-    const primary = '<a class="feature-read" href="' + url + '">' + icon(music ? 'play' : 'book',18) + action + '</a>';
-    const follow = '<button type="button" class="feature-follow" data-follow="' + escape(book.author) + '" aria-pressed="' +
-      followed + '">' + icon(followed ? 'check' : 'plus',16) + (followed ? '팔로잉' : music ? '아티스트 팔로우' : '작가 팔로우') + '</button>';
-    const source = book.id === 'moon' ? ' srcset="./assets/moon-small.webp 680w, ./assets/moon.webp 1254w" sizes="(max-width:700px) 36vw, 280px"' : '';
-    const art = '<a class="feature-art" href="' + url + '" aria-label="' + escape(book.title + ' ' + action) + '"><img src="' +
-      escape(book.cover) + '"' + source + ' alt="' + escape(book.title) + ' 표지" fetchpriority="high"></a>';
-    const kind = music ? '음반' : toon ? '웹툰' : '웹소설';
-    const copy = '<div class="feature-copy"><p class="edition">' + escape(book.genre) + ' · ' + kind + '</p><h1 id="featured-title">' +
-      escape(book.title) + '</h1><p class="feature-author">' + escape(book.author) + (music ? '' : ' 작가') + '</p>' +
-      '<p class="feature-blurb">' + escape(book.blurb) + '</p><div class="feature-actions">' + primary + follow + '</div></div>';
+  function campaignFor(slot, available) {
+    if (!slot || typeof slot.image !== 'string') return null;
+    const match = /^\/read\/([^/]+)\/([1-9]\d*)$/.exec(slot.href);
+    const external = !match && /^https:\/\//i.test(slot.href);
+    const book = match && available.find(item => item.id === match[1]);
+    const episode = book && publishedEpisodes(book).find(item => item.number === Number(match[2]));
+    if (!external && !episode) return null;
+    const image = slot.image.startsWith('/assets/') ? '.' + slot.image : slot.image;
+    return {...slot, book, episode, image, url:external ? slot.href : readUrl(book, episode)};
+  }
+
+  function feature(book, episodes, slot) {
+    const music = book?.category === '음악';
+    const toon = book?.category === '웹툰';
+    const ep = slot?.episode || episodes[0];
+    const url = slot?.url || readUrl(book, ep);
+    const followLabel = music ? '아티스트 팔로우' : '작가 팔로우';
+    const followed = book && state.following.includes(book.author);
+    let action = '광고 보기';
+    if (book) {
+      const number = ep.number;
+      action = music ? (number === 1 ? '첫 트랙 듣기' : number + '번 트랙 듣기')
+        : (number === 1 ? '첫 화' : number + '화') + (toon ? ' 보기' : ' 읽기');
+    }
+    const primary = '<a class="feature-read" href="' + escape(url) + '">' + icon(music ? 'play' : book ? 'book' : 'arrow',18) + action + '</a>';
+    const follow = book ? '<button type="button" class="feature-follow" data-follow="' + escape(book.author) + '" aria-pressed="' +
+      followed + '">' + icon(followed ? 'check' : 'plus',16) + (followed ? '팔로잉' : followLabel) + '</button>' : '';
+    const image = slot?.image || book.cover;
+    const source = image === './assets/moon.webp' ? ' srcset="./assets/moon-small.webp 680w, ./assets/moon.webp 1254w" sizes="(max-width:700px) 36vw, 280px"' : '';
+    const title = slot?.title || book.title;
+    const art = '<a class="feature-art" href="' + escape(url) + '" aria-label="' + escape(title + ' ' + action) + '"><img src="' +
+      escape(image) + '"' + source + ' alt="" fetchpriority="high"></a>';
+    const edition = [slot?.label, book?.genre, book && (music ? '음반' : toon ? '웹툰' : '웹소설')].filter(Boolean).join(' · ');
+    const author = book ? escape(book.author) + (music ? '' : ' 작가') : '';
+    const copy = '<div class="feature-copy"><p class="edition">' + escape(edition) + '</p><h1 id="featured-title">' +
+      escape(title) + '</h1><p class="feature-author">' + author + '</p><p class="feature-blurb">' + escape(slot?.description || book?.blurb || '') +
+      '</p><div class="feature-actions">' + primary + follow + '</div></div>';
     return '<section class="feature" aria-labelledby="featured-title">' + (music || toon ? art + copy : copy + art) + '</section>';
+  }
+
+  function campaignBanner(slot) {
+    if (!slot) return '';
+    return '<aside class="campaign-banner" aria-label="광고"><a href="' + escape(slot.url) + '"><img src="' + escape(slot.image) +
+      '" alt="" loading="lazy"><span class="campaign-banner-copy"><small>' + escape(slot.label) + '</small><strong>' + escape(slot.title) + '</strong><span>' +
+      escape(slot.description) + '</span></span>' + icon('arrow',18) + '</a></aside>';
+  }
+
+  const rotationDelay = 6000;
+  let releaseCarousel;
+  function carousel(slots) {
+    const first = slots[0];
+    return '<section class="campaign-carousel" aria-label="추천 및 광고" aria-roledescription="슬라이드 쇼">' +
+      '<div data-campaign-stage aria-live="off">' + feature(first.book, [], first) + '</div>' +
+      (slots.length > 1 ? '<div class="campaign-controls"><button type="button" data-campaign-step="-1" aria-label="이전 슬라이드">' + icon('arrow-left',16) +
+      '</button><span data-campaign-position>1 / ' + slots.length + '</span><button type="button" data-campaign-step="1" aria-label="다음 슬라이드">' +
+      icon('arrow',16) + '</button><button type="button" data-campaign-pause>자동 전환 정지</button></div>' : '') + '</section>';
+  }
+
+  function bindCarousel(genre) {
+    const root = main.querySelector('.campaign-carousel');
+    const slots = homePlacements(genre).slots;
+    if (!root || slots.length < 2) return;
+    const stage = root.querySelector('[data-campaign-stage]');
+    const position = root.querySelector('[data-campaign-position]');
+    const pause = root.querySelector('[data-campaign-pause]');
+    const motion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    let index = 0, paused = Boolean(motion?.matches), hovered = false, running = true, timeout;
+    function schedule() {
+      window.clearTimeout(timeout);
+      if (running && !paused && !hovered && !document.hidden && !dialog.open) {
+        timeout = window.setTimeout(() => { if (running) move(1); }, rotationDelay);
+      }
+    }
+    function move(step) {
+      index = (index + step + slots.length) % slots.length;
+      const slot = slots[index];
+      stage.innerHTML = feature(slot.book, [], slot);
+      position.textContent = (index + 1) + ' / ' + slots.length;
+      schedule();
+    }
+    function showPause() {
+      pause.textContent = paused ? '자동 전환 재생' : '자동 전환 정지';
+      stage.setAttribute('aria-live', paused ? 'polite' : 'off');
+    }
+    function stopForFocus(event) {
+      if (!root.contains(event.relatedTarget)) {
+        paused = true;
+        showPause();
+        schedule();
+      }
+    }
+    // A pointer click on the rotation control should perform the action named before focus moved.
+    root.addEventListener('focusin', event => {
+      if (!event.target.closest('[data-campaign-pause]')) stopForFocus(event);
+    });
+    root.addEventListener('mouseenter', () => { hovered = true; schedule(); });
+    root.addEventListener('mouseleave', () => { hovered = false; schedule(); });
+    root.addEventListener('click', event => {
+      const step = event.target.closest('[data-campaign-step]');
+      if (step) move(Number(step.dataset.campaignStep));
+      if (event.target.closest('[data-campaign-pause]')) { paused = !paused; showPause(); schedule(); }
+    });
+    function motionChanged() { if (motion.matches) paused = true; showPause(); schedule(); }
+    motion?.addEventListener('change', motionChanged);
+    document.addEventListener('visibilitychange', schedule);
+    dialog.addEventListener('close', schedule);
+    // The modal suspends rotating content behind it until closed.
+    document.getElementById('search-open').addEventListener('click', schedule);
+    showPause();
+    schedule();
+    releaseCarousel = () => {
+      running = false;
+      window.clearTimeout(timeout);
+      motion?.removeEventListener('change', motionChanged);
+      document.removeEventListener('visibilitychange', schedule);
+      dialog.removeEventListener('close', schedule);
+      document.getElementById('search-open').removeEventListener('click', schedule);
+    };
+  }
+
+  function homePlacements(genre) {
+    const key = genre.route || 'novel';
+    const available = books.filter(book => visible(book) && categoryOf(book) === genre.label && publishedEpisodes(book).length);
+    const campaigns = window.SubartCampaigns;
+    const slots = (campaigns?.[key] || []).slice(0,5).map(slot => campaignFor(slot,available)).filter(Boolean);
+    const banner = campaignFor(campaigns?.banners?.[key], available);
+    return {available, slots, banner};
   }
 
   function episodeList(book, episodes) {
@@ -171,7 +280,7 @@
   }
 
   function home(genre) {
-    const available = books.filter(book => visible(book) && categoryOf(book) === genre.label && publishedEpisodes(book).length);
+    const {available, slots, banner} = homePlacements(genre);
     const navigation = '<div class="discovery-bar"><nav class="genre-tabs" aria-label="작품 장르">' + genres.map(item =>
       '<a href="#home' + (item.route ? '/' + item.route : '') + '"' + (item === genre ? ' aria-current="page"' : '') + '>' +
       item.label + '</a>').join('') + '</nav><a class="pass-link" href="#subscribe">프리패스 보기 ' + icon('arrow',16) + '</a></div>';
@@ -184,10 +293,12 @@
     const shelfTitle = genre.route === 'music' ? '다른 음반' : genre.route === 'webtoon' ? '다른 웹툰' : '작품 서가';
     const shelf = works.length ? '<section class="shelf" aria-labelledby="shelf-title"><div class="shelf-heading"><h2 id="shelf-title">' +
       shelfTitle + '</h2><span>' + works.length + '편</span></div><div class="shelf-grid">' + works.map(galleryCard).join('') + '</div></section>' : '';
-    return wrapper + feature(book,episodes) + list + shelf + '</div>';
+    return wrapper + (slots.length ? carousel(slots) : feature(book,episodes)) + campaignBanner(banner) + list + shelf + '</div>';
   }
   const names={home:'홈',library:'내 서재',community:'커뮤니티',read:'작품 읽기',subscribe:'구독권 선택',account:'구독 관리',report:'신고',studio:'창작자 작업실',ops:'운영 콘솔'};
   function render() {
+    releaseCarousel?.();
+    releaseCarousel = undefined;
     let parts=readHash();
     if(parts[0]==='app-content') parts=['home'];
     if (parts[0]==='subscribe' && parts[1]) {
@@ -223,6 +334,7 @@
       window.scrollTo(0,0);
       if(!first) main.focus({preventScroll:true});
     }
+    if(isHome && window.SubartCampaigns) bindCarousel(homeGenre(parts[1]));
     if(workspace) window.SubartWorkspace.bind(parts);
     else if(known&&!isHome) window.SubartReader.bind(parts);
   }
